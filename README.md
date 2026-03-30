@@ -25,7 +25,8 @@ The HTTP API supports:
 - API key authentication with the `x-api-key` header
 - Client credentials exchange through `POST /v1/auth/tokens`
 - Bearer JWTs for service-to-service access
-- Role-based authorization with `admin`, `service`, and `reader` roles
+- Email OTP signup through `POST /v1/auth/email/request-otp` and `POST /v1/auth/email/verify-otp`
+- Role-based authorization with `admin`, `service`, `user`, and `reader` roles
 
 Default local development credentials are only for local use:
 
@@ -34,6 +35,13 @@ Default local development credentials are only for local use:
 - `apiKey`: `change-me-local-dev-api-key`
 
 Use [.env.example](/Users/apple/Downloads/temp-test/apify/.env.example) to define production credentials through `LINKEDIN_JOBS_AUTH_IDENTITIES_JSON` and `LINKEDIN_JOBS_JWT_SECRET`.
+
+For end users, the intended flow is:
+
+1. call `POST /v1/auth/email/request-otp` with an email address
+2. receive the OTP over SMTP email
+3. call `POST /v1/auth/email/verify-otp` with the email and OTP
+4. store the returned API key and use it in `x-api-key` for job APIs
 
 ## HTTP API
 
@@ -53,13 +61,23 @@ Email delivery uses SMTP from `.env`:
 - `SMTP_EMAIL`
 - `SMTP_PASSWORD`
 - optional: `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_FROM`
-- optional: `LINKEDIN_JOBS_ALERTS_DIR` and `EMAIL_ALERT_POLL_INTERVAL_MS`
-- optional on Vercel: `BLOB_READ_WRITE_TOKEN`, `LINKEDIN_JOBS_STORAGE_PROVIDER=vercel-blob`, `LINKEDIN_JOBS_BLOB_PREFIX`, and `CRON_SECRET`
+
+MongoDB-backed storage is now the primary persistence path for runs, alerts, users, and OTP challenges:
+
+- `MONGO_URI`
+- optional: `LINKEDIN_JOBS_STORAGE_PROVIDER=mongo`
+- optional: `LINKEDIN_JOBS_MONGO_DATABASE_NAME` default `linkedInJobs`
+- optional: `LINKEDIN_JOBS_MONGO_COLLECTION_NAME` default `linkedInJobs`
+- optional for file fallback only: `LINKEDIN_JOBS_RUNS_DIR` and `LINKEDIN_JOBS_ALERTS_DIR`
+- optional for Vercel Blob fallback only: `BLOB_READ_WRITE_TOKEN`, `LINKEDIN_JOBS_STORAGE_PROVIDER=vercel-blob`, and `LINKEDIN_JOBS_BLOB_PREFIX`
+- optional for scheduled alert processing: `EMAIL_ALERT_POLL_INTERVAL_MS` and `CRON_SECRET`
 
 Endpoints:
 
 - `GET /health`
 - `POST /v1/auth/tokens`
+- `POST /v1/auth/email/request-otp`
+- `POST /v1/auth/email/verify-otp`
 - `GET /v1/auth/me`
 - `POST /v1/jobs/search`
 - `POST /v1/jobs/deliveries/send`
@@ -84,6 +102,31 @@ curl -X POST http://127.0.0.1:3000/v1/jobs/search \
     "pageNumber": 1
   }'
 ```
+
+Email OTP signup example:
+
+```bash
+curl -X POST http://127.0.0.1:3000/v1/auth/email/request-otp \
+  -H 'content-type: application/json' \
+  -d '{
+    "name": "Jane Candidate",
+    "email": "jane@example.com"
+  }'
+```
+
+OTP verification example:
+
+```bash
+curl -X POST http://127.0.0.1:3000/v1/auth/email/verify-otp \
+  -H 'content-type: application/json' \
+  -d '{
+    "name": "Jane Candidate",
+    "email": "jane@example.com",
+    "otp": "123456"
+  }'
+```
+
+The verification response returns a distinct API key for that email user. Use that key for `POST /v1/jobs/search`, runs, and alerts.
 
 Pagination:
 
@@ -176,18 +219,21 @@ Alert behavior:
 
 This repo now includes a Vercel Fastify entrypoint at [src/index.js](/Users/apple/Downloads/temp-test/apify/src/index.js). Vercel will deploy the app as a single Fastify function.
 
-For a durable backend on Vercel:
+For a durable backend on Vercel with MongoDB:
 
-- set `BLOB_READ_WRITE_TOKEN`
-- set `LINKEDIN_JOBS_STORAGE_PROVIDER=vercel-blob`
-- optional: set `LINKEDIN_JOBS_BLOB_PREFIX`
+- set `MONGO_URI`
+- set `LINKEDIN_JOBS_STORAGE_PROVIDER=mongo`
+- optional: set `LINKEDIN_JOBS_MONGO_DATABASE_NAME=linkedInJobs`
+- optional: set `LINKEDIN_JOBS_MONGO_COLLECTION_NAME=linkedInJobs`
 - set `SMTP_EMAIL` and `SMTP_PASSWORD`
+- optional: set `LINKEDIN_JOBS_OTP_SECRET`
 - set `CRON_SECRET` if you want Vercel Cron to trigger alert processing securely
 
 State on Vercel:
 
-- Runs and saved alerts use Vercel Blob automatically when `LINKEDIN_JOBS_STORAGE_PROVIDER=vercel-blob`.
-- If you deploy on Vercel without Blob storage, file-backed runs and alerts are ephemeral.
+- When `MONGO_URI` is present, the app defaults to Mongo storage and keeps runs, alerts, users, and OTP challenges in one collection.
+- The default collection name is `linkedInJobs`.
+- If you override storage back to file on Vercel, persistence is ephemeral.
 
 Alert scheduling on Vercel:
 

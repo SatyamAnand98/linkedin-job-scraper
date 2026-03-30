@@ -149,6 +149,47 @@ export function createEmailService(emailConfig, { logger = createNoopLogger() } 
     return {
         isConfigured,
 
+        async sendOtpEmail({ recipientEmail, otpCode, expiresInMinutes = 10 }) {
+            ensureConfigured();
+
+            const subject = '[LinkedIn Jobs] Your verification code';
+            const html = `
+                <div style="margin:0;padding:24px;background:#f5eee3;color:#1f1b18;font-family:Arial,sans-serif;">
+                    <div style="max-width:560px;margin:0 auto;padding:28px;border-radius:24px;background:#fffaf2;border:1px solid #eadfcd;">
+                        <p style="margin:0 0 12px;color:#7b3b18;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;">Email verification</p>
+                        <h1 style="margin:0 0 12px;font-size:28px;line-height:1.1;">Your OTP code</h1>
+                        <p style="margin:0 0 18px;color:#6b6159;line-height:1.6;">Use this code to verify your email and get your API key. The code expires in ${escapeHtml(expiresInMinutes)} minute${expiresInMinutes === 1 ? '' : 's'}.</p>
+                        <div style="padding:18px 22px;border-radius:20px;background:#f1e6d6;color:#7b3b18;font-size:32px;font-weight:800;letter-spacing:0.18em;text-align:center;">${escapeHtml(otpCode)}</div>
+                    </div>
+                </div>
+            `;
+            const text = [
+                'Your LinkedIn Jobs verification code',
+                '',
+                `OTP: ${otpCode}`,
+                `Expires in: ${expiresInMinutes} minute${expiresInMinutes === 1 ? '' : 's'}`,
+            ].join('\n');
+
+            const info = await getTransport().sendMail({
+                from: emailConfig.from,
+                to: recipientEmail,
+                subject,
+                text,
+                html,
+            });
+
+            logger.info?.('Sent OTP email.', {
+                recipientEmail,
+                messageId: info.messageId,
+            });
+
+            return {
+                messageId: info.messageId,
+                recipientEmail,
+                subject,
+            };
+        },
+
         async sendJobsDigest({ recipientEmail, deliveryMode, searchInput, result, alert = null }) {
             ensureConfigured();
 

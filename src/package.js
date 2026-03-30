@@ -11,3 +11,10 @@ export { BlobAlertRepository } from './storage/blob-alert-repository.js';
 export { BlobRunRepository } from './storage/blob-run-repository.js';
 export { FileAlertRepository } from './storage/file-alert-repository.js';
 export { FileRunRepository } from './storage/file-run-repository.js';
+export {
+    MongoAlertRepository,
+    MongoCollectionProvider,
+    MongoOtpRepository,
+    MongoRunRepository,
+    MongoUserRepository,
+} from './storage/mongo-repositories.js';

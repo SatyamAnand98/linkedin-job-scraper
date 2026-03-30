@@ -21,7 +21,7 @@
                 <div class="hero__stats">
                     <div class="stat">
                         <span class="stat__label">Auth</span>
-                        <span class="stat__value">API Key</span>
+                        <span class="stat__value">Email OTP + API Key</span>
                     </div>
                     <div class="stat">
                         <span class="stat__label">Pagination</span>
@@ -43,6 +43,37 @@
                 </div>
 
                 <form id="search-form" class="form-grid">
+                    <section class="delivery-section field--full">
+                        <div class="delivery-section__header">
+                            <div>
+                                <h3>Email Signup</h3>
+                                <p>Request a one-time code over email, verify it, and this app will fill in your personal API key.</p>
+                            </div>
+                        </div>
+
+                        <div class="delivery-section__grid">
+                            <label class="field">
+                                <span>Name</span>
+                                <input name="signupName" type="text" placeholder="Your name">
+                            </label>
+
+                            <label class="field">
+                                <span>Email</span>
+                                <input name="signupEmail" type="email" placeholder="you@example.com">
+                            </label>
+
+                            <label class="field">
+                                <span>OTP</span>
+                                <input name="signupOtp" type="text" inputmode="numeric" maxlength="6" placeholder="123456">
+                            </label>
+
+                            <div class="actions field--full">
+                                <button type="button" id="request-otp" class="button button--ghost">Request OTP</button>
+                                <button type="button" id="verify-otp" class="button button--primary">Verify And Use API Key</button>
+                            </div>
+                        </div>
+                    </section>
+
                     <label class="field field--full">
                         <span>API key</span>
                         <input id="api-key" name="apiKey" type="password" autocomplete="off" placeholder="change-me-local-dev-api-key">

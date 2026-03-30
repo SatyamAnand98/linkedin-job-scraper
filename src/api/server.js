@@ -13,6 +13,13 @@ import { BlobAlertRepository } from '../storage/blob-alert-repository.js';
 import { BlobRunRepository } from '../storage/blob-run-repository.js';
 import { FileAlertRepository } from '../storage/file-alert-repository.js';
 import { FileRunRepository } from '../storage/file-run-repository.js';
+import {
+    MongoAlertRepository,
+    MongoCollectionProvider,
+    MongoOtpRepository,
+    MongoRunRepository,
+    MongoUserRepository,
+} from '../storage/mongo-repositories.js';
 import { parseJobsSearchRequest } from './search-request.js';
 
 function replyWithError(reply, error) {
@@ -60,19 +67,42 @@ export async function createApiServer(options = {}) {
     const config = options.config ?? loadConfig();
     const logger = options.logger ?? createNoopLogger();
     const serviceLogger = options.serviceLogger ?? createServiceLogger();
-    const authService = options.authService ?? createAuthService(config.auth);
+    const emailService = options.emailService ?? createEmailService(config.email, {
+        logger: serviceLogger,
+    });
+    const useMongoStorage = config.storage.provider === 'mongo';
     const useBlobStorage = config.storage.provider === 'vercel-blob';
-    const runRepository = options.runRepository ?? (useBlobStorage
+    const mongoProvider = useMongoStorage
+        ? new MongoCollectionProvider(config.storage.mongo)
+        : null;
+    const runRepository = options.runRepository ?? (useMongoStorage
+        ? new MongoRunRepository({ provider: mongoProvider })
+        : useBlobStorage
         ? new BlobRunRepository({ prefix: `${config.storage.blobPrefix}/runs` })
         : new FileRunRepository({ runsDir: config.storage.runsDir }));
-    const alertRepository = options.alertRepository ?? (useBlobStorage
+    const alertRepository = options.alertRepository ?? (useMongoStorage
+        ? new MongoAlertRepository({ provider: mongoProvider })
+        : useBlobStorage
         ? new BlobAlertRepository({ prefix: `${config.storage.blobPrefix}/alerts` })
         : new FileAlertRepository({ alertsDir: config.storage.alertsDir }));
+    const userRepository = options.userRepository ?? (useMongoStorage
+        ? new MongoUserRepository({ provider: mongoProvider })
+        : null);
+    const otpRepository = options.otpRepository ?? (useMongoStorage
+        ? new MongoOtpRepository({ provider: mongoProvider })
+        : null);
+    const authService = options.authService ?? createAuthService(config.auth, {
+        userRepository,
+        otpRepository,
+        emailService,
+    });
 
     await runRepository.init();
     await alertRepository.init();
+    await userRepository?.init?.();
+    await otpRepository?.init?.();
 
-    if (config.platform.isVercel && !useBlobStorage) {
+    if (config.platform.isVercel && !useBlobStorage && !useMongoStorage) {
         serviceLogger.warn('Vercel deployment is using file-backed storage. Runs and alerts will not persist across instances.', {
             storageProvider: config.storage.provider,
         });
@@ -81,9 +111,6 @@ export async function createApiServer(options = {}) {
     const jobsService = options.jobsService ?? createJobsService({
         logger: serviceLogger,
         runRepository,
-    });
-    const emailService = options.emailService ?? createEmailService(config.email, {
-        logger: serviceLogger,
     });
     const jobsDeliveryService = options.jobsDeliveryService ?? createJobsDeliveryService({
         jobsService,
@@ -106,7 +133,7 @@ export async function createApiServer(options = {}) {
 
     async function authenticate(request) {
         if (!request.identity) {
-            request.identity = authService.authenticateRequest(request.headers);
+            request.identity = await authService.authenticateRequest(request.headers);
         }
 
         return request.identity;
@@ -166,6 +193,7 @@ export async function createApiServer(options = {}) {
 
     server.addHook('onClose', async () => {
         jobsDeliveryService.stopScheduler?.();
+        await mongoProvider?.close?.();
     });
 
     if (config.alerts.useInProcessScheduler) {
@@ -182,7 +210,32 @@ export async function createApiServer(options = {}) {
                 });
             }
 
-            reply.code(201).send(authService.issueAccessToken({ clientId, clientSecret }));
+            reply.code(201).send(await authService.issueAccessToken({ clientId, clientSecret }));
+        } catch (error) {
+            replyWithError(reply, error);
+        }
+    });
+
+    server.post('/v1/auth/email/request-otp', async (request, reply) => {
+        try {
+            const result = await authService.requestEmailOtp({
+                email: request.body?.email,
+                name: request.body?.name,
+            });
+            reply.code(202).send(result);
+        } catch (error) {
+            replyWithError(reply, error);
+        }
+    });
+
+    server.post('/v1/auth/email/verify-otp', async (request, reply) => {
+        try {
+            const result = await authService.verifyEmailOtp({
+                email: request.body?.email,
+                otp: request.body?.otp,
+                name: request.body?.name,
+            });
+            reply.code(201).send(result);
         } catch (error) {
             replyWithError(reply, error);
         }
@@ -235,7 +288,9 @@ export async function createApiServer(options = {}) {
 
     server.post('/v1/jobs/alerts', { preHandler: requirePermission('jobs:run') }, async (request, reply) => {
         try {
-            const alert = await jobsDeliveryService.createAlert(await parseJobsSearchRequest(request));
+            const alert = await jobsDeliveryService.createAlert(await parseJobsSearchRequest(request), {
+                identity: request.identity,
+            });
             reply.code(201).send({ alert });
         } catch (error) {
             logger.error?.('Creating jobs email alert failed.', { error: error.message });
@@ -248,7 +303,9 @@ export async function createApiServer(options = {}) {
 
     server.get('/v1/jobs/alerts', { preHandler: requirePermission('jobs:run') }, async (request, reply) => {
         try {
-            const alerts = await jobsDeliveryService.listAlerts();
+            const alerts = await jobsDeliveryService.listAlerts({
+                identity: request.identity,
+            });
             reply.send({
                 count: alerts.length,
                 alerts,
@@ -275,7 +332,9 @@ export async function createApiServer(options = {}) {
 
     server.delete('/v1/jobs/alerts/:alertId', { preHandler: requirePermission('jobs:run') }, async (request, reply) => {
         try {
-            await jobsDeliveryService.deleteAlert(request.params.alertId);
+            await jobsDeliveryService.deleteAlert(request.params.alertId, {
+                identity: request.identity,
+            });
             reply.code(204).send();
         } catch (error) {
             replyWithError(reply, Object.assign(error, {
@@ -286,7 +345,9 @@ export async function createApiServer(options = {}) {
     });
 
     server.post('/v1/jobs/runs', { preHandler: requirePermission('jobs:run') }, async (request, reply) => {
-        const run = await jobsService.createRun(request.body?.input ?? request.body ?? {});
+        const run = await jobsService.createRun(request.body?.input ?? request.body ?? {}, {
+            identity: request.identity,
+        });
         const summary = toRunSummary(run);
 
         if (run.status === 'failed') {
@@ -302,7 +363,9 @@ export async function createApiServer(options = {}) {
     });
 
     server.get('/v1/jobs/runs/:runId', { preHandler: requirePermission('jobs:read') }, async (request, reply) => {
-        const run = await jobsService.getRun(request.params.runId);
+        const run = await jobsService.getRun(request.params.runId, {
+            identity: request.identity,
+        });
         if (!run) {
             return replyWithError(reply, Object.assign(new Error('Run not found.'), {
                 statusCode: 404,
@@ -316,7 +379,9 @@ export async function createApiServer(options = {}) {
     });
 
     server.get('/v1/jobs/runs/:runId/items', { preHandler: requirePermission('jobs:read') }, async (request, reply) => {
-        const items = await jobsService.getRunItems(request.params.runId);
+        const items = await jobsService.getRunItems(request.params.runId, {
+            identity: request.identity,
+        });
         if (!items) {
             return replyWithError(reply, Object.assign(new Error('Run not found.'), {
                 statusCode: 404,

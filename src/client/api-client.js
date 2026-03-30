@@ -28,6 +28,27 @@ export class LinkedInJobsApiClient {
         return response;
     }
 
+    requestEmailOtp(input) {
+        return this.#request('/v1/auth/email/request-otp', {
+            method: 'POST',
+            body: input,
+        });
+    }
+
+    async verifyEmailOtp(input) {
+        const response = await this.#request('/v1/auth/email/verify-otp', {
+            method: 'POST',
+            body: input,
+        });
+
+        if (response.apiKey) {
+            this.apiKey = response.apiKey;
+            this.accessToken = null;
+        }
+
+        return response;
+    }
+
     getCurrentIdentity() {
         return this.#request('/v1/auth/me');
     }

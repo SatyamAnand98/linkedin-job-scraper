@@ -12,6 +12,8 @@ const searchButton = isBrowser ? document.querySelector('#search-button') : null
 const nextPageButton = isBrowser ? document.querySelector('#next-page') : null;
 const previousPageButton = isBrowser ? document.querySelector('#previous-page') : null;
 const resetFiltersButton = isBrowser ? document.querySelector('#reset-filters') : null;
+const requestOtpButton = isBrowser ? document.querySelector('#request-otp') : null;
+const verifyOtpButton = isBrowser ? document.querySelector('#verify-otp') : null;
 const openVisibleButton = isBrowser ? document.querySelector('#open-visible') : null;
 const clearAppliedButton = isBrowser ? document.querySelector('#clear-applied') : null;
 const sendEmailButton = isBrowser ? document.querySelector('#send-email-now') : null;
@@ -45,6 +47,8 @@ function bootstrap() {
     nextPageButton.addEventListener('click', () => changePageNumber(1));
     previousPageButton.addEventListener('click', () => changePageNumber(-1));
     resetFiltersButton.addEventListener('click', handleReset);
+    requestOtpButton.addEventListener('click', handleRequestOtp);
+    verifyOtpButton.addEventListener('click', handleVerifyOtp);
     openVisibleButton.addEventListener('click', openVisibleJobs);
     clearAppliedButton.addEventListener('click', clearAppliedJobs);
     sendEmailButton.addEventListener('click', handleSendEmail);
@@ -71,6 +75,17 @@ function bootstrap() {
     loadAlerts().catch(() => {
         renderAlerts([]);
     });
+}
+
+function defaultApiKeyValue() {
+    if (!isBrowser) {
+        return '';
+    }
+
+    const host = window.location.hostname;
+    return host === 'localhost' || host === '127.0.0.1'
+        ? 'change-me-local-dev-api-key'
+        : '';
 }
 
 async function handleSearchSubmit(event) {
@@ -127,6 +142,70 @@ async function handleSendEmail() {
     }
 }
 
+async function handleRequestOtp() {
+    const email = form.elements.signupEmail.value.trim();
+    if (!email) {
+        showStatus('Signup email is required.', 'error');
+        return;
+    }
+
+    setLoadingState(true);
+    showStatus('Sending OTP...');
+
+    try {
+        await request('/v1/auth/email/request-otp', {
+            method: 'POST',
+            headers: {
+                'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+                email,
+                name: form.elements.signupName.value.trim() || undefined,
+            }),
+        });
+        persistPreferences();
+        showStatus(`OTP sent to ${email}.`, 'success');
+    } catch (error) {
+        showStatus(error.message, 'error');
+    } finally {
+        setLoadingState(false);
+    }
+}
+
+async function handleVerifyOtp() {
+    const email = form.elements.signupEmail.value.trim();
+    const otp = form.elements.signupOtp.value.trim();
+    if (!email || !otp) {
+        showStatus('Signup email and OTP are required.', 'error');
+        return;
+    }
+
+    setLoadingState(true);
+    showStatus('Verifying OTP...');
+
+    try {
+        const response = await request('/v1/auth/email/verify-otp', {
+            method: 'POST',
+            headers: {
+                'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+                email,
+                otp,
+                name: form.elements.signupName.value.trim() || undefined,
+            }),
+        });
+        apiKeyInput.value = response.apiKey;
+        form.elements.signupOtp.value = '';
+        persistPreferences();
+        showStatus(`Verified ${response.user.email}. Your API key is loaded into the form.`, 'success');
+    } catch (error) {
+        showStatus(error.message, 'error');
+    } finally {
+        setLoadingState(false);
+    }
+}
+
 async function handleSaveAlert() {
     const payload = buildPayload(form);
     const validationError = validatePayload(payload, {
@@ -155,7 +234,7 @@ async function handleSaveAlert() {
 
 function handleReset() {
     form.reset();
-    apiKeyInput.value = apiKeyInput.value || 'change-me-local-dev-api-key';
+    apiKeyInput.value = apiKeyInput.value || defaultApiKeyValue();
     hideAppliedInput.checked = true;
     form.elements.rows.value = 10;
     form.elements.pageNumber.value = 1;
@@ -505,12 +584,16 @@ function updateSummary(visibleCount = 0) {
 }
 
 function setLoadingState(isLoading) {
+    requestOtpButton.disabled = isLoading;
+    verifyOtpButton.disabled = isLoading;
     searchButton.disabled = isLoading;
     nextPageButton.disabled = isLoading;
     previousPageButton.disabled = isLoading;
     sendEmailButton.disabled = isLoading;
     saveAlertButton.disabled = isLoading;
     refreshAlertsButton.disabled = isLoading;
+    requestOtpButton.textContent = isLoading ? 'Working…' : 'Request OTP';
+    verifyOtpButton.textContent = isLoading ? 'Working…' : 'Verify And Use API Key';
     searchButton.textContent = isLoading ? 'Working…' : 'Search Jobs';
     sendEmailButton.textContent = isLoading ? 'Working…' : 'Send Jobs Now';
     saveAlertButton.textContent = isLoading ? 'Working…' : 'Save Email Alert';
@@ -700,6 +783,8 @@ function persistPreferences() {
     const preferences = {
         apiKey: apiKeyInput.value,
         hideApplied: hideAppliedInput.checked,
+        signupName: form.elements.signupName.value,
+        signupEmail: form.elements.signupEmail.value,
         title: form.elements.title.value,
         location: form.elements.location.value,
         rows: form.elements.rows.value,
@@ -724,7 +809,7 @@ function persistPreferences() {
 }
 
 function hydratePreferences() {
-    apiKeyInput.value = 'change-me-local-dev-api-key';
+    apiKeyInput.value = defaultApiKeyValue();
 
     try {
         const preferences = JSON.parse(localStorage.getItem(PREFERENCES_STORAGE_KEY) ?? '{}');
@@ -737,6 +822,8 @@ function hydratePreferences() {
 
         for (const fieldName of [
             'title',
+            'signupName',
+            'signupEmail',
             'location',
             'rows',
             'pageNumber',
@@ -771,6 +858,6 @@ function hydratePreferences() {
             }
         }
     } catch {
-        apiKeyInput.value = 'change-me-local-dev-api-key';
+        apiKeyInput.value = defaultApiKeyValue();
     }
 }

@@ -124,6 +124,22 @@ function mergeSentJobIds(existingIds, items) {
     return merged.slice(-MAX_STORED_SENT_JOB_IDS);
 }
 
+function isAdminIdentity(identity) {
+    return identity?.role === 'admin';
+}
+
+function canAccessAlert(alert, identity) {
+    if (!alert) {
+        return false;
+    }
+
+    if (!alert.ownerClientId || isAdminIdentity(identity)) {
+        return true;
+    }
+
+    return alert.ownerClientId === identity?.clientId;
+}
+
 export function createJobsDeliveryService({
     jobsService,
     alertRepository,
@@ -175,7 +191,7 @@ export function createJobsDeliveryService({
         };
     }
 
-    async function createAlert(rawInput) {
+    async function createAlert(rawInput, { identity } = {}) {
         ensureEmailConfigured();
         const recipientEmail = validateEmail(rawInput.deliveryEmail);
         const cronExpression = normalizeCronExpression(rawInput.cronExpression);
@@ -195,6 +211,8 @@ export function createJobsDeliveryService({
             totalEmailsSent: 0,
             totalJobsSent: 0,
             lastError: null,
+            ownerClientId: identity?.clientId ?? null,
+            ownerEmail: identity?.email ?? null,
             sentJobIds: [],
             searchMetadata,
             searchInput,
@@ -204,14 +222,20 @@ export function createJobsDeliveryService({
         return summarizeAlert(alert);
     }
 
-    async function listAlerts() {
+    async function listAlerts({ identity } = {}) {
         const alerts = await alertRepository.listAlerts();
-        return alerts.map(summarizeAlert);
+        return alerts
+            .filter((alert) => canAccessAlert(alert, identity))
+            .map(summarizeAlert);
     }
 
-    async function deleteAlert(alertId) {
+    async function deleteAlert(alertId, { identity } = {}) {
         const existingAlert = await alertRepository.getAlert(alertId);
         if (!existingAlert) {
+            throw httpError(404, 'Alert not found.', 'not_found');
+        }
+
+        if (!canAccessAlert(existingAlert, identity)) {
             throw httpError(404, 'Alert not found.', 'not_found');
         }
 

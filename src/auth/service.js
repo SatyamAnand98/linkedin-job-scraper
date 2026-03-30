@@ -1,4 +1,4 @@
-import { timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 
 import jwt from 'jsonwebtoken';
 
@@ -21,9 +21,20 @@ function safeEqual(left, right) {
     return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
 }
 
+function normalizeEmail(email) {
+    const normalized = `${email ?? ''}`.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+        throw httpError(400, 'A valid "email" is required.', 'bad_request');
+    }
+
+    return normalized;
+}
+
 function sanitizeIdentity(identity, authType) {
     return {
         clientId: identity.clientId,
+        userId: identity.userId ?? null,
+        email: identity.email ?? null,
         name: identity.name,
         role: identity.role,
         permissions: resolvePermissions(identity),
@@ -31,23 +42,65 @@ function sanitizeIdentity(identity, authType) {
     };
 }
 
-export function createAuthService(authConfig) {
+function hashToken(value) {
+    return createHash('sha256').update(value).digest('hex');
+}
+
+function hashOtp({ email, otp, secret }) {
+    return hashToken(`${secret}:${email}:${otp}`);
+}
+
+function generateOtpCode() {
+    return `${randomInt(0, 1_000_000)}`.padStart(6, '0');
+}
+
+function generateApiKey() {
+    return `lj_${randomBytes(24).toString('base64url')}`;
+}
+
+function generateClientId() {
+    return `user_${randomBytes(10).toString('hex')}`;
+}
+
+function toUserDocument(user) {
+    const { _id, kind, ...rest } = user ?? {};
+    return rest;
+}
+
+export function createAuthService(authConfig, {
+    userRepository = null,
+    otpRepository = null,
+    emailService = null,
+} = {}) {
     const identities = authConfig.identities ?? [];
+
+    function ensureOtpAuthConfigured() {
+        if (!userRepository || !otpRepository || !emailService) {
+            throw httpError(500, 'Email OTP signup is not configured. Set MONGO_URI and SMTP settings.', 'otp_not_configured');
+        }
+    }
 
     function findByClientId(clientId) {
         return identities.find((identity) => identity.clientId === clientId) ?? null;
     }
 
-    function authenticateApiKey(apiKey) {
-        const identity = identities.find((candidate) => candidate.apiKey && safeEqual(candidate.apiKey, apiKey));
-        if (!identity) {
-            throw httpError(401, 'Invalid API key.', 'unauthorized');
+    async function authenticateApiKey(apiKey) {
+        const configIdentity = identities.find((candidate) => candidate.apiKey && safeEqual(candidate.apiKey, apiKey));
+        if (configIdentity) {
+            return sanitizeIdentity(configIdentity, 'api_key');
         }
 
-        return sanitizeIdentity(identity, 'api_key');
+        if (userRepository) {
+            const user = await userRepository.findByApiKeyHash(hashToken(apiKey));
+            if (user) {
+                return sanitizeIdentity(toUserDocument(user), 'api_key');
+            }
+        }
+
+        throw httpError(401, 'Invalid API key.', 'unauthorized');
     }
 
-    function issueAccessToken({ clientId, clientSecret }) {
+    async function issueAccessToken({ clientId, clientSecret }) {
         const identity = findByClientId(clientId);
         if (!identity?.clientSecret || !safeEqual(identity.clientSecret, clientSecret)) {
             throw httpError(401, 'Invalid client credentials.', 'unauthorized');
@@ -72,6 +125,8 @@ export function createAuthService(authConfig) {
             const payload = jwt.verify(token, authConfig.jwtSecret);
             return {
                 clientId: payload.clientId,
+                userId: payload.userId ?? null,
+                email: payload.email ?? null,
                 name: payload.name,
                 role: payload.role,
                 permissions: payload.permissions ?? [],
@@ -82,7 +137,7 @@ export function createAuthService(authConfig) {
         }
     }
 
-    function authenticateRequest(headers) {
+    async function authenticateRequest(headers) {
         const authorization = headers.authorization ?? '';
         if (authorization.startsWith('Bearer ')) {
             return verifyAccessToken(authorization.slice('Bearer '.length));
@@ -102,10 +157,101 @@ export function createAuthService(authConfig) {
         }
     }
 
+    async function requestEmailOtp({ email, name }) {
+        ensureOtpAuthConfigured();
+
+        const normalizedEmail = normalizeEmail(email);
+        const otpCode = generateOtpCode();
+        const expiresAt = new Date(Date.now() + (authConfig.otpTtlSeconds * 1000)).toISOString();
+
+        await otpRepository.saveOtpChallenge({
+            email: normalizedEmail,
+            emailNormalized: normalizedEmail,
+            name: `${name ?? ''}`.trim() || null,
+            otpHash: hashOtp({
+                email: normalizedEmail,
+                otp: otpCode,
+                secret: authConfig.otpSecret,
+            }),
+            expiresAt,
+            requestedAt: new Date().toISOString(),
+        });
+
+        await emailService.sendOtpEmail({
+            recipientEmail: normalizedEmail,
+            otpCode,
+            expiresInMinutes: Math.max(1, Math.round(authConfig.otpTtlSeconds / 60)),
+        });
+
+        return {
+            email: normalizedEmail,
+            expiresInSeconds: authConfig.otpTtlSeconds,
+        };
+    }
+
+    async function verifyEmailOtp({ email, otp, name }) {
+        ensureOtpAuthConfigured();
+
+        const normalizedEmail = normalizeEmail(email);
+        const normalizedOtp = `${otp ?? ''}`.trim();
+        if (!/^\d{6}$/.test(normalizedOtp)) {
+            throw httpError(400, 'A valid 6-digit "otp" is required.', 'bad_request');
+        }
+
+        const challenge = await otpRepository.getOtpChallenge(normalizedEmail);
+        if (!challenge || Date.parse(challenge.expiresAt) < Date.now()) {
+            if (challenge) {
+                await otpRepository.deleteOtpChallenge(normalizedEmail);
+            }
+
+            throw httpError(401, 'OTP expired or not found. Request a new OTP.', 'unauthorized');
+        }
+
+        const expectedHash = hashOtp({
+            email: normalizedEmail,
+            otp: normalizedOtp,
+            secret: authConfig.otpSecret,
+        });
+
+        if (!safeEqual(challenge.otpHash, expectedHash)) {
+            throw httpError(401, 'Invalid OTP.', 'unauthorized');
+        }
+
+        const now = new Date().toISOString();
+        const existingUser = userRepository ? await userRepository.findByEmail(normalizedEmail) : null;
+        const apiKey = generateApiKey();
+        const nextUser = {
+            ...(existingUser ? toUserDocument(existingUser) : {}),
+            userId: existingUser?.userId ?? randomBytes(12).toString('hex'),
+            clientId: existingUser?.clientId ?? generateClientId(),
+            email: normalizedEmail,
+            emailNormalized: normalizedEmail,
+            name: `${name ?? challenge.name ?? existingUser?.name ?? normalizedEmail}`.trim(),
+            role: existingUser?.role ?? authConfig.defaultUserRole,
+            permissions: existingUser?.permissions ?? [],
+            apiKeyHash: hashToken(apiKey),
+            apiKeyPreview: `${apiKey.slice(0, 8)}...`,
+            createdAt: existingUser?.createdAt ?? now,
+            updatedAt: now,
+            verifiedAt: now,
+        };
+
+        await userRepository.saveUser(nextUser);
+        await otpRepository.deleteOtpChallenge(normalizedEmail);
+
+        return {
+            user: sanitizeIdentity(nextUser, 'api_key'),
+            apiKey,
+            created: !existingUser,
+        };
+    }
+
     return {
         issueAccessToken,
         verifyAccessToken,
         authenticateRequest,
         authorize,
+        requestEmailOtp,
+        verifyEmailOtp,
     };
 }

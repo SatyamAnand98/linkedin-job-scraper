@@ -69,6 +69,22 @@ function normalizeResumeMatchScoreRange(rawInput = {}, hasResumeInput) {
     return range;
 }
 
+function isAdminIdentity(identity) {
+    return identity?.role === 'admin';
+}
+
+function canAccessOwnedResource(resource, identity) {
+    if (!resource) {
+        return false;
+    }
+
+    if (!resource.ownerClientId || isAdminIdentity(identity)) {
+        return true;
+    }
+
+    return resource.ownerClientId === identity?.clientId;
+}
+
 export function createJobsService({
     logger = createNoopLogger(),
     runRepository,
@@ -114,7 +130,7 @@ export function createJobsService({
             return searchWithOptionalResumeMatch(rawInput);
         },
 
-        async createRun(rawInput) {
+        async createRun(rawInput, { identity } = {}) {
             if (!runRepository) {
                 throw new Error('Run repository is required for createRun().');
             }
@@ -129,6 +145,8 @@ export function createJobsService({
                 createdAt,
                 updatedAt: createdAt,
                 itemCount: 0,
+                ownerClientId: identity?.clientId ?? null,
+                ownerEmail: identity?.email ?? null,
                 input,
                 items: [],
             });
@@ -148,6 +166,8 @@ export function createJobsService({
                     updatedAt: new Date().toISOString(),
                     completedAt: new Date().toISOString(),
                     itemCount: result.items.length,
+                    ownerClientId: identity?.clientId ?? null,
+                    ownerEmail: identity?.email ?? null,
                     input: result.input,
                     pagesScanned: result.pagesScanned,
                     totalUniqueJobsSeen: result.totalUniqueJobsSeen,
@@ -164,6 +184,8 @@ export function createJobsService({
                     updatedAt: new Date().toISOString(),
                     completedAt: new Date().toISOString(),
                     itemCount: 0,
+                    ownerClientId: identity?.clientId ?? null,
+                    ownerEmail: identity?.email ?? null,
                     input,
                     items: [],
                     errorMessage: error.message,
@@ -174,20 +196,22 @@ export function createJobsService({
             }
         },
 
-        async getRun(runId) {
+        async getRun(runId, { identity } = {}) {
             if (!runRepository) {
                 throw new Error('Run repository is required for getRun().');
             }
 
-            return runRepository.getRun(runId);
+            const run = await runRepository.getRun(runId);
+            return canAccessOwnedResource(run, identity) ? run : null;
         },
 
-        async getRunItems(runId) {
+        async getRunItems(runId, { identity } = {}) {
             if (!runRepository) {
                 throw new Error('Run repository is required for getRunItems().');
             }
 
-            return runRepository.getRunItems(runId);
+            const run = await runRepository.getRun(runId);
+            return canAccessOwnedResource(run, identity) ? (run.items ?? []) : null;
         },
     };
 }

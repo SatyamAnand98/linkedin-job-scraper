@@ -1,6 +1,7 @@
 export const ROLE_PERMISSIONS = {
     admin: ['jobs:run', 'jobs:read', 'tokens:issue'],
     service: ['jobs:run', 'jobs:read'],
+    user: ['jobs:run', 'jobs:read'],
     reader: ['jobs:read'],
 };
 

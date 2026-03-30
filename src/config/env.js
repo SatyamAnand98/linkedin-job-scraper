@@ -89,7 +89,8 @@ export function loadConfig(env = process.env) {
     const smtpPort = parseInteger(env.SMTP_PORT, 465);
     const isVercel = Boolean(env.VERCEL);
     const storageProvider = env.LINKEDIN_JOBS_STORAGE_PROVIDER
-        ?? (env.BLOB_READ_WRITE_TOKEN ? 'vercel-blob' : 'file');
+        ?? (env.MONGO_URI ? 'mongo' : env.BLOB_READ_WRITE_TOKEN ? 'vercel-blob' : 'file');
+    const mongoUri = env.MONGO_URI ?? null;
 
     if (nodeEnv === 'production' && (!hasExplicitAuthConfig || !env.LINKEDIN_JOBS_JWT_SECRET)) {
         throw new Error('Production mode requires LINKEDIN_JOBS_AUTH_IDENTITIES_JSON and LINKEDIN_JOBS_JWT_SECRET.');
@@ -105,12 +106,20 @@ export function loadConfig(env = process.env) {
             jwtSecret,
             accessTokenTtlSeconds: parseInteger(env.LINKEDIN_JOBS_TOKEN_TTL_SECONDS, 3600),
             identities,
+            otpTtlSeconds: parseInteger(env.LINKEDIN_JOBS_OTP_TTL_SECONDS, 600),
+            otpSecret: env.LINKEDIN_JOBS_OTP_SECRET ?? jwtSecret,
+            defaultUserRole: env.LINKEDIN_JOBS_DEFAULT_USER_ROLE ?? 'user',
         },
         storage: {
             provider: storageProvider,
             runsDir: path.resolve(env.LINKEDIN_JOBS_RUNS_DIR ?? './storage/api-runs'),
             alertsDir: path.resolve(env.LINKEDIN_JOBS_ALERTS_DIR ?? './storage/job-alerts'),
             blobPrefix: env.LINKEDIN_JOBS_BLOB_PREFIX ?? 'linkedin-jobs',
+            mongo: {
+                uri: mongoUri,
+                databaseName: env.LINKEDIN_JOBS_MONGO_DATABASE_NAME ?? 'linkedInJobs',
+                collectionName: env.LINKEDIN_JOBS_MONGO_COLLECTION_NAME ?? 'linkedInJobs',
+            },
         },
         email: {
             from: env.SMTP_FROM ?? env.SMTP_EMAIL ?? null,
