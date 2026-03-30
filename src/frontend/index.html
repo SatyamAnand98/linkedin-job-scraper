@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>LinkedIn Jobs Apply Desk</title>
+    <link rel="stylesheet" href="/app/styles.css">
+</head>
+<body>
+    <div class="page-shell">
+        <header class="hero">
+            <div class="hero__eyebrow">LinkedIn Jobs Apply Desk</div>
+            <div class="hero__content">
+                <div>
+                    <h1>Search, score, page through, and apply without losing your place.</h1>
+                    <p>
+                        The frontend sits on top of <code>/v1/jobs/search</code>, supports resume scoring,
+                        page-based result slices, and local applied tracking so you can move through roles without re-opening the same ones.
+                    </p>
+                </div>
+                <div class="hero__stats">
+                    <div class="stat">
+                        <span class="stat__label">Auth</span>
+                        <span class="stat__value">API Key</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat__label">Pagination</span>
+                        <span class="stat__value">rows + pageNumber</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat__label">Resume</span>
+                        <span class="stat__value">URL or file</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="layout">
+            <section class="panel panel--form">
+                <div class="panel__header">
+                    <h2>Search Inputs</h2>
+                    <button type="button" id="reset-filters" class="button button--ghost">Reset</button>
+                </div>
+
+                <form id="search-form" class="form-grid">
+                    <label class="field field--full">
+                        <span>API key</span>
+                        <input id="api-key" name="apiKey" type="password" autocomplete="off" placeholder="change-me-local-dev-api-key">
+                    </label>
+
+                    <label class="field field--full">
+                        <span>Job title</span>
+                        <input name="title" type="text" placeholder="Product Manager">
+                    </label>
+
+                    <label class="field">
+                        <span>Location</span>
+                        <input name="location" type="text" placeholder="Bengaluru">
+                    </label>
+
+                    <label class="field">
+                        <span>Rows per page</span>
+                        <input name="rows" type="number" min="1" max="1000" value="10">
+                    </label>
+
+                    <label class="field">
+                        <span>Page number</span>
+                        <input name="pageNumber" type="number" min="1" max="1000" value="1">
+                    </label>
+
+                    <label class="field">
+                        <span>Published at</span>
+                        <select name="publishedAt">
+                            <option value="">Any time</option>
+                            <option value="r86400">Past 24 hours</option>
+                            <option value="r604800">Past week</option>
+                            <option value="r2592000">Past month</option>
+                        </select>
+                    </label>
+
+                    <label class="field">
+                        <span>Company names</span>
+                        <input name="companyName" type="text" placeholder="Google, Microsoft">
+                    </label>
+
+                    <label class="field">
+                        <span>Company IDs</span>
+                        <input name="companyId" type="text" placeholder="76987811, 1815218">
+                    </label>
+
+                    <label class="field">
+                        <span class="field__header">
+                            <span>Work type</span>
+                            <button type="button" class="field__clear" data-reset-target="workType">Clear</button>
+                        </span>
+                        <select name="workType" multiple size="3">
+                            <option value="1">On-site</option>
+                            <option value="2">Remote</option>
+                            <option value="3">Hybrid</option>
+                        </select>
+                    </label>
+
+                    <label class="field">
+                        <span class="field__header">
+                            <span>Contract type</span>
+                            <button type="button" class="field__clear" data-reset-target="contractType">Clear</button>
+                        </span>
+                        <select name="contractType" multiple size="6">
+                            <option value="F">Full-time</option>
+                            <option value="P">Part-time</option>
+                            <option value="C">Contract</option>
+                            <option value="T">Temporary</option>
+                            <option value="V">Volunteer</option>
+                            <option value="I">Internship</option>
+                        </select>
+                    </label>
+
+                    <label class="field">
+                        <span class="field__header">
+                            <span>Experience level</span>
+                            <button type="button" class="field__clear" data-reset-target="experienceLevel">Clear</button>
+                        </span>
+                        <select name="experienceLevel" multiple size="5">
+                            <option value="1">Internship</option>
+                            <option value="2">Entry level</option>
+                            <option value="3">Associate</option>
+                            <option value="4">Mid-Senior level</option>
+                            <option value="5">Director</option>
+                        </select>
+                    </label>
+
+                    <label class="field">
+                        <span>Resume URL</span>
+                        <input name="resumeUrl" type="url" placeholder="https://example.com/resume.pdf">
+                    </label>
+
+                    <label class="field field--full">
+                        <span class="field__header">
+                            <span>Resume file</span>
+                            <button type="button" class="field__clear" data-reset-target="resumeFile">Clear</button>
+                        </span>
+                        <input name="resumeFile" type="file" accept=".pdf,.docx,.txt,.md,.html,.htm,.json,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+                        <span id="resume-file-state" class="field__hint">No file selected</span>
+                    </label>
+
+                    <label class="field">
+                        <span>Min score</span>
+                        <input name="resumeMatchMinScore" type="number" min="1" max="10" step="0.1" placeholder="7">
+                    </label>
+
+                    <label class="field">
+                        <span>Max score</span>
+                        <input name="resumeMatchMaxScore" type="number" min="1" max="10" step="0.1" placeholder="10">
+                    </label>
+
+                    <label class="field">
+                        <span>Request delay ms</span>
+                        <input name="requestDelayMs" type="number" min="0" max="10000" value="600">
+                    </label>
+
+                    <label class="field">
+                        <span>Detail concurrency</span>
+                        <input name="detailConcurrency" type="number" min="1" max="10" value="3">
+                    </label>
+
+                    <section class="delivery-section field--full">
+                        <div class="delivery-section__header">
+                            <div>
+                                <h3>Email Delivery</h3>
+                                <p>Use the current filters, resume, and score range for an instant email or a recurring cron alert.</p>
+                            </div>
+                        </div>
+
+                        <div class="delivery-section__grid">
+                            <label class="field field--full">
+                                <span>Delivery email</span>
+                                <input name="deliveryEmail" type="email" placeholder="you@example.com">
+                            </label>
+
+                            <label class="field">
+                                <span>Alert preset</span>
+                                <select name="cronPreset">
+                                    <option value="0 * * * *">Every hour</option>
+                                    <option value="*/15 * * * *">Every 15 minutes</option>
+                                    <option value="0 */6 * * *">Every 6 hours</option>
+                                    <option value="0 9 * * *">Daily at 9:00</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                            </label>
+
+                            <label class="field">
+                                <span>Cron expression</span>
+                                <input name="cronExpression" type="text" value="0 * * * *" placeholder="0 * * * *">
+                            </label>
+
+                            <p class="field__hint field--full">
+                                Examples: <code>0 * * * *</code> hourly, <code>*/15 * * * *</code> every 15 minutes, <code>0 9 * * *</code> every day at 9.
+                            </p>
+
+                            <div class="actions field--full">
+                                <button type="button" id="send-email-now" class="button button--primary">Send Jobs Now</button>
+                                <button type="button" id="save-email-alert" class="button button--ghost">Save Email Alert</button>
+                                <button type="button" id="refresh-alerts" class="button button--ghost">Refresh Alerts</button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <label class="field field--toggle">
+                        <span>Hide locally applied jobs</span>
+                        <input id="hide-applied" type="checkbox" checked>
+                    </label>
+
+                    <div class="actions field--full">
+                        <button type="submit" id="search-button" class="button button--primary">Search Jobs</button>
+                        <button type="button" id="previous-page" class="button button--ghost">Previous Page</button>
+                        <button type="button" id="next-page" class="button button--ghost">Next Page</button>
+                    </div>
+                </form>
+
+                <div class="alerts-panel">
+                    <div class="panel__header panel__header--compact">
+                        <div>
+                            <h2>Saved Alerts</h2>
+                            <p class="muted">Cron-based email alerts created from the current filters.</p>
+                        </div>
+                    </div>
+
+                    <div id="alerts-list" class="alerts-list">
+                        <div class="empty-state">No email alerts saved yet.</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel panel--results">
+                <div class="panel__header panel__header--results">
+                    <div>
+                        <h2>Results</h2>
+                        <p id="results-summary" class="muted">Run a search to load jobs.</p>
+                    </div>
+                    <div class="results-toolbar">
+                        <button type="button" id="open-visible" class="button button--ghost">Open Visible Jobs</button>
+                        <button type="button" id="clear-applied" class="button button--ghost">Clear Applied Marks</button>
+                    </div>
+                </div>
+
+                <div id="status-banner" class="status-banner" hidden></div>
+                <div id="results-list" class="results-list"></div>
+            </section>
+        </main>
+    </div>
+
+    <template id="job-card-template">
+        <article class="job-card">
+            <div class="job-card__top">
+                <div>
+                    <div class="job-card__meta"></div>
+                    <h3 class="job-card__title"></h3>
+                    <div class="job-card__company"></div>
+                </div>
+                <div class="job-card__score"></div>
+            </div>
+
+            <div class="job-card__chips"></div>
+            <p class="job-card__summary"></p>
+
+            <div class="job-card__breakdown"></div>
+
+            <div class="job-card__actions">
+                <a class="button button--primary job-card__apply" target="_blank" rel="noreferrer">Open job</a>
+                <button type="button" class="button button--ghost job-card__toggle">Mark applied</button>
+            </div>
+        </article>
+    </template>
+
+    <script type="module" src="/app/app.js"></script>
+</body>
+</html>

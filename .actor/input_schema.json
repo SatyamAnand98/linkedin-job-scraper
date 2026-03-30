@@ -1,0 +1,121 @@
+{
+  "title": "LinkedIn Jobs Scraper Input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "title": {
+      "title": "Job title",
+      "type": "string",
+      "description": "Optional LinkedIn job keywords, for example: Software Engineer.",
+      "editor": "textfield"
+    },
+    "location": {
+      "title": "Job location",
+      "type": "string",
+      "description": "Optional LinkedIn location text, for example: United States or New York, NY.",
+      "editor": "textfield"
+    },
+    "companyName": {
+      "title": "Company name",
+      "type": "array",
+      "description": "Optional case-insensitive company name filter applied after scraping search cards.",
+      "editor": "stringList",
+      "items": {
+        "type": "string"
+      }
+    },
+    "companyId": {
+      "title": "Company ID",
+      "type": "array",
+      "description": "Optional LinkedIn company IDs used through the LinkedIn f_C filter, for example Uber: 1815218.",
+      "editor": "stringList",
+      "items": {
+        "type": "string"
+      }
+    },
+    "publishedAt": {
+      "title": "Published at",
+      "type": "string",
+      "description": "Limit results by recency.",
+      "editor": "select",
+      "enum": [
+        "r2592000",
+        "r604800",
+        "r86400"
+      ],
+      "enumTitles": [
+        "Past month",
+        "Past week",
+        "Past 24 hours"
+      ]
+    },
+    "rows": {
+      "title": "Rows per page",
+      "type": "integer",
+      "description": "Number of jobs to return for the requested page.",
+      "default": 50,
+      "minimum": 1,
+      "maximum": 1000,
+      "editor": "number"
+    },
+    "pageNumber": {
+      "title": "Page number",
+      "type": "integer",
+      "description": "1-based page number of the filtered job results to return.",
+      "default": 1,
+      "minimum": 1,
+      "maximum": 1000,
+      "editor": "number"
+    },
+    "workType": {
+      "title": "On-site / Remote",
+      "type": "array",
+      "description": "Filter by workplace type.",
+      "editor": "multiselect",
+      "items": {
+        "type": "string",
+        "enum": ["1", "2", "3"],
+        "enumTitles": ["On-site", "Remote", "Hybrid"]
+      }
+    },
+    "contractType": {
+      "title": "Job type",
+      "type": "array",
+      "description": "Filter by LinkedIn job type codes.",
+      "editor": "multiselect",
+      "items": {
+        "type": "string",
+        "enum": ["F", "P", "C", "T", "V", "I"],
+        "enumTitles": ["Full-time", "Part-time", "Contract", "Temporary", "Volunteer", "Internship"]
+      }
+    },
+    "experienceLevel": {
+      "title": "Experience level",
+      "type": "array",
+      "description": "Filter by LinkedIn experience level codes.",
+      "editor": "multiselect",
+      "items": {
+        "type": "string",
+        "enum": ["1", "2", "3", "4", "5"],
+        "enumTitles": ["Internship", "Entry level", "Associate", "Mid-Senior level", "Director"]
+      }
+    },
+    "proxy": {
+      "title": "Proxy configuration",
+      "type": "object",
+      "description": "Optional Apify proxy configuration. Leave empty to scrape without a proxy.",
+      "editor": "proxy"
+    }
+  },
+  "anyOf": [
+    {
+      "required": ["title"]
+    },
+    {
+      "required": ["companyName"]
+    },
+    {
+      "required": ["companyId"]
+    }
+  ]
+}

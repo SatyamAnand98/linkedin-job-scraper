@@ -1,0 +1,8 @@
+node_modules
+apify_storage
+storage
+.env
+.DS_Store
+.env.local
+.env.example
+examples

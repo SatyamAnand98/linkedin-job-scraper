@@ -1,0 +1,48 @@
+{
+  "name": "linkedin-jobs-scraper",
+  "version": "0.1.0",
+  "description": "LinkedIn jobs platform package with a reusable scraper core, authenticated API, and Apify actor entrypoint.",
+  "type": "module",
+  "main": "./src/package.js",
+  "exports": {
+    ".": "./src/package.js",
+    "./api": "./src/api/server.js",
+    "./client": "./src/client/api-client.js",
+    "./actor": "./src/run-actor.js"
+  },
+  "bin": {
+    "linkedin-jobs-api": "./bin/api.js",
+    "linkedin-jobs-actor": "./bin/actor.js"
+  },
+  "files": [
+    "bin",
+    "examples",
+    "src",
+    ".actor",
+    ".env.example",
+    "Dockerfile",
+    "README.md",
+    "INPUT.json"
+  ],
+  "scripts": {
+    "start": "node src/main.js",
+    "start:api": "node --watch src/api/main.js",
+    "start:api:once": "node src/api/main.js"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@fastify/multipart": "^9.4.0",
+    "@vercel/blob": "^2.3.2",
+    "apify": "^3.4.4",
+    "cheerio": "^1.0.0",
+    "cron-parser": "^5.5.0",
+    "fastify": "^5.3.3",
+    "got-scraping": "^4.1.2",
+    "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^8.0.4",
+    "pdf-parse": "^2.4.5"
+  }
+}
