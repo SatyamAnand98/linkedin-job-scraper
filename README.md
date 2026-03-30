@@ -219,6 +219,8 @@ Alert behavior:
 
 This repo now includes a Vercel Fastify entrypoint at [src/index.js](/Users/apple/Downloads/temp-test/apify/src/index.js). Vercel will deploy the app as a single Fastify function.
 
+Do not add a `functions` mapping for `src/index.js` in `vercel.json`. Vercel's Fastify deployment detects the entrypoint automatically, while `functions` matching is intended for Vercel Functions in the `api/` directory.
+
 For a durable backend on Vercel with MongoDB:
 
 - set `MONGO_URI`
