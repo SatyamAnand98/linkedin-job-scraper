@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ApplyDesk Cloud | Log In</title>
+    <title>ApplyDesk Cloud | Simple Email Login</title>
     <link rel="stylesheet" href="/app/styles.css">
 </head>
 <body data-page="login" data-auth-mode="login" data-auth-redirect="/app/account">
@@ -14,53 +14,34 @@
                     <span class="brand__mark">AD</span>
                     <span class="brand__text">
                         <strong>ApplyDesk Cloud</strong>
-                        <span>Pick up your job search where you left off</span>
+                        <span>Email OTP login</span>
                     </span>
                 </a>
 
                 <nav class="topbar__nav" aria-label="Primary">
                     <a href="/">Home</a>
                     <a href="/login" aria-current="page">Log In</a>
-                    <a href="/signup">Sign Up</a>
-                    <a href="/app/account">Dashboard</a>
+                    <a href="/terms">Terms</a>
+                    <a href="/contact">Contact</a>
                 </nav>
 
                 <div class="topbar__actions">
-                    <span class="session-user" data-session-email>Request an OTP to continue</span>
-                    <a class="button button--ghost" data-guest-only href="/signup">Need an account?</a>
-                    <a class="button button--primary" data-auth-only hidden href="/app/account">Go To Dashboard</a>
+                    <span class="session-user" data-session-email>Email OTP</span>
+                    <a class="button button--primary" data-auth-only hidden href="/app/account">Dashboard</a>
                     <button type="button" class="button button--ghost" data-signout hidden>Log Out</button>
                 </div>
             </div>
         </header>
 
         <main class="site-main">
-            <section class="auth-layout">
-                <article class="auth-panel auth-panel--story">
-                    <p class="section-heading__eyebrow">Log in</p>
-                    <h1>Get back to your saved job search.</h1>
-                    <p>Use the email you signed up with. We send a one-time password and take you straight back to your account after verification.</p>
-
-                    <div class="auth-checklist">
-                        <span>Email OTP only</span>
-                        <span>No password to remember</span>
-                        <span>Your account opens after verify</span>
-                    </div>
-
-                    <div class="auth-story-card">
-                        <p class="hero-card__kicker">Simple flow</p>
-                        <h2>Enter email, request OTP, verify, continue.</h2>
-                        <p>Once you verify, you can go back to searching jobs, checking matches, and reviewing alerts without any password reset friction.</p>
-                    </div>
-                </article>
-
-                <section class="auth-panel auth-panel--form">
+            <section class="auth-layout auth-layout--single">
+                <section class="auth-panel auth-panel--form auth-panel--plain">
                     <div class="auth-card">
                         <div class="auth-card__header">
                             <div>
                                 <p class="section-heading__eyebrow">Login</p>
-                                <h2>Request OTP and verify</h2>
-                                <p class="muted">Use your existing email to get back into your account quickly.</p>
+                                <h1>Log in with email.</h1>
+                                <p class="muted">Request OTP. Verify. Continue.</p>
                             </div>
                         </div>
 
@@ -72,14 +53,18 @@
                                 <input name="signupEmail" type="email" placeholder="you@example.com" autocomplete="email">
                             </label>
 
-                            <label class="field field--full">
+                            <div class="actions actions--auth field--full">
+                                <button type="button" id="request-otp" class="button button--ghost">Send OTP</button>
+                            </div>
+
+                            <label class="field field--full" data-otp-field hidden>
                                 <span>One-time password</span>
-                                <input name="signupOtp" type="text" inputmode="numeric" maxlength="6" placeholder="123456">
+                                <input name="signupOtp" type="text" inputmode="numeric" maxlength="6" placeholder="123456" disabled>
+                                <span class="field__hint" data-otp-hint>Request OTP first.</span>
                             </label>
 
-                            <div class="actions field--full">
-                                <button type="button" id="request-otp" class="button button--ghost">Send OTP</button>
-                                <button type="button" id="verify-otp" class="button button--primary">Log In</button>
+                            <div class="actions actions--auth field--full" data-otp-submit hidden>
+                                <button type="button" id="verify-otp" class="button button--primary">Continue</button>
                             </div>
                         </form>
                     </div>
@@ -90,14 +75,13 @@
         <footer class="site-footer">
             <div class="site-footer__brand">
                 <strong>ApplyDesk Cloud</strong>
-                <p>Log in quickly and get back to finding roles that suit you.</p>
+                <p>One login flow.</p>
             </div>
 
             <nav class="site-footer__nav" aria-label="Footer">
                 <a href="/">Home</a>
                 <a href="/terms">Terms &amp; Conditions</a>
                 <a href="/contact">Contact Us</a>
-                <a href="/signup">Sign Up</a>
             </nav>
         </footer>
     </div>

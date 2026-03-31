@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ApplyDesk Cloud | Smarter Job Search For You</title>
+    <title>ApplyDesk Cloud | Minimal Job Search Workspace</title>
     <link rel="stylesheet" href="/app/styles.css">
 </head>
 <body data-page="home">
@@ -14,7 +14,7 @@
                     <span class="brand__mark">AD</span>
                     <span class="brand__text">
                         <strong>ApplyDesk Cloud</strong>
-                        <span>Find better-fit jobs with less busywork</span>
+                        <span>Job search, simplified</span>
                     </span>
                 </a>
 
@@ -26,10 +26,9 @@
                 </nav>
 
                 <div class="topbar__actions">
-                    <span class="session-user" data-session-email>Use email OTP to start a session</span>
-                    <a class="button button--ghost" data-guest-only href="/login">Log In</a>
-                    <a class="button button--primary" data-guest-only href="/signup">Start Free</a>
-                    <a class="button button--primary" data-auth-only hidden href="/app/account">Open Dashboard</a>
+                    <span class="session-user" data-session-email>Email OTP login</span>
+                    <a class="button button--primary" data-guest-only href="/login">Log In</a>
+                    <a class="button button--primary" data-auth-only hidden href="/app/account">Dashboard</a>
                     <button type="button" class="button button--ghost" data-signout hidden>Log Out</button>
                 </div>
             </div>
@@ -39,135 +38,83 @@
             <section class="hero hero--landing">
                 <div class="hero__grid hero__grid--landing">
                     <div class="hero__copy hero__copy--landing">
-                        <div class="hero__eyebrow">Smarter job search</div>
-                        <h1>Find better-fit jobs faster and stay on top of every opportunity.</h1>
-                        <p>
-                            ApplyDesk Cloud helps you search relevant roles, compare them against your resume,
-                            and get timely alerts so you can focus on applying instead of repeating the same work every day.
-                        </p>
+                        <div class="hero__eyebrow">Simple job search</div>
+                        <h1>Search jobs in one place.</h1>
+                        <p>Log in, search, check fit, and save alerts.</p>
 
                         <div class="hero__actions">
-                            <a class="button button--primary" data-guest-only href="/signup">Start Free</a>
-                            <a class="button button--ghost" data-guest-only href="/login">Log In</a>
-                            <a class="button button--primary" data-auth-only hidden href="/app/account">Open Dashboard</a>
-                            <a class="button button--ghost" data-auth-only hidden href="/app/search">Search Jobs</a>
+                            <a class="button button--primary" data-guest-only href="/login">Log In</a>
+                            <a class="button button--primary" data-auth-only hidden href="/app/account">Dashboard</a>
+                            <a class="button button--ghost" data-auth-only hidden href="/app/search">Search</a>
                         </div>
 
                         <div class="hero__proof">
-                            <span>Email OTP sign in</span>
-                            <span>Resume match scoring</span>
-                            <span>Saved job alerts</span>
-                            <span>One place for search and follow-up</span>
+                            <span>OTP login</span>
+                            <span>Resume fit</span>
+                            <span>Saved alerts</span>
                         </div>
                     </div>
 
                     <aside class="landing-preview">
                         <article class="landing-preview__main">
                             <div class="landing-preview__header">
-                                <p class="landing-preview__label">How it helps</p>
-                                <strong>One simple flow from search to apply</strong>
+                                <p class="landing-preview__label">Flow</p>
+                                <strong>One login flow</strong>
                             </div>
 
                             <div class="landing-preview__steps">
                                 <div class="preview-step">
                                     <span class="preview-step__index">01</span>
                                     <div>
-                                        <strong>Sign up in minutes</strong>
-                                        <p>Use your email, verify once, and get straight into your job search.</p>
+                                        <strong>Log in</strong>
+                                        <p>OTP works for new and returning users.</p>
                                     </div>
                                 </div>
 
                                 <div class="preview-step">
                                     <span class="preview-step__index">02</span>
                                     <div>
-                                        <strong>Search jobs that fit</strong>
-                                        <p>Use your preferences and resume to surface roles worth your attention.</p>
+                                        <strong>Search</strong>
+                                        <p>Filter roles fast.</p>
                                     </div>
                                 </div>
 
                                 <div class="preview-step">
                                     <span class="preview-step__index">03</span>
                                     <div>
-                                        <strong>Stay ahead with alerts</strong>
-                                        <p>Get new matching roles sent to you so good opportunities do not slip by.</p>
+                                        <strong>Save alerts</strong>
+                                        <p>Reuse a good search.</p>
                                     </div>
                                 </div>
                             </div>
                         </article>
-
-                        <div class="landing-preview__stats">
-                            <article class="mini-stat">
-                                <strong>100</strong>
-                                <span>Roles you can review without losing your place</span>
-                            </article>
-                            <article class="mini-stat">
-                                <strong>1,000</strong>
-                                <span>Searches and alerts managed from one account</span>
-                            </article>
-                            <article class="mini-stat">
-                                <strong>24/7</strong>
-                                <span>Always-on alerts for new openings</span>
-                            </article>
-                        </div>
                     </aside>
                 </div>
             </section>
 
             <section class="landing-strip">
                 <div class="landing-strip__intro">
-                    <p class="section-heading__eyebrow">What you get</p>
-                    <h2>A personal job search assistant, not another cluttered jobs page.</h2>
+                    <p class="section-heading__eyebrow">Core</p>
+                    <h2>Three simple actions.</h2>
                 </div>
 
                 <div class="landing-strip__grid">
                     <article class="journey-card">
-                        <span class="journey-card__step">Account</span>
-                        <h3>Simple sign up and login</h3>
-                        <p>Create your account with email OTP and pick up your search again anytime.</p>
+                        <span class="journey-card__step">Access</span>
+                        <h3>One login flow</h3>
+                        <p>No separate signup.</p>
                     </article>
 
                     <article class="journey-card">
                         <span class="journey-card__step">Search</span>
-                        <h3>Resume-aware job discovery</h3>
-                        <p>See which roles align with your background so you spend more time applying to the right ones.</p>
+                        <h3>Search</h3>
+                        <p>Search and check fit.</p>
                     </article>
 
                     <article class="journey-card">
                         <span class="journey-card__step">Alerts</span>
-                        <h3>Alerts that keep you moving</h3>
-                        <p>Save alerts for the roles you want and get updates when fresh matches appear.</p>
-                    </article>
-                </div>
-            </section>
-
-            <section class="section-shell landing-story">
-                <div class="section-heading">
-                    <p class="section-heading__eyebrow">Why it works</p>
-                    <h2>Built for people who want a cleaner, faster way to find jobs.</h2>
-                    <p>
-                        ApplyDesk Cloud brings search, match scoring, and alerts together so you can stay organized,
-                        focus on relevant openings, and keep your momentum during a job hunt.
-                    </p>
-                </div>
-
-                <div class="landing-story__grid">
-                    <article class="story-card story-card--primary">
-                        <span class="story-card__label">Best fit</span>
-                        <h3>Job seekers who want less noise and more relevant opportunities.</h3>
-                        <p>
-                            If you are tired of repeating the same searches, losing track of promising roles,
-                            or missing openings because they were posted too late, this product is built for you.
-                        </p>
-                    </article>
-
-                    <article class="story-card">
-                        <span class="story-card__label">What improves</span>
-                        <ul class="story-list">
-                            <li>Faster discovery of roles that match your resume</li>
-                            <li>Less manual searching across the same job boards every day</li>
-                            <li>Better visibility into what to apply to next</li>
-                            <li>A calmer, more organized search experience</li>
-                        </ul>
+                        <h3>Alerts</h3>
+                        <p>Save and rerun searches.</p>
                     </article>
                 </div>
             </section>
@@ -176,7 +123,7 @@
         <footer class="site-footer">
             <div class="site-footer__brand">
                 <strong>ApplyDesk Cloud</strong>
-                <p>Search smarter, track better matches, and stay ready for the next opportunity.</p>
+                <p>Search, score, alert.</p>
             </div>
 
             <nav class="site-footer__nav" aria-label="Footer">
@@ -187,7 +134,6 @@
                 <a href="/terms">Terms &amp; Conditions</a>
                 <a href="/contact">Contact Us</a>
                 <a href="/login" data-guest-only>Log In</a>
-                <a href="/signup" data-guest-only>Sign Up</a>
             </nav>
         </footer>
     </div>

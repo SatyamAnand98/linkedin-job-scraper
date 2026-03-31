@@ -328,11 +328,15 @@ export function createApiServer(options = {}) {
     });
 
     server.get('/signup', async (request, reply) => {
-        await sendFrontendPage(reply, 'signup.html');
+        const queryIndex = request.url.indexOf('?');
+        const search = queryIndex >= 0 ? request.url.slice(queryIndex) : '';
+        reply.redirect(`/login${search}`);
     });
 
     server.get('/app/signup', async (request, reply) => {
-        reply.redirect('/signup');
+        const queryIndex = request.url.indexOf('?');
+        const search = queryIndex >= 0 ? request.url.slice(queryIndex) : '';
+        reply.redirect(`/login${search}`);
     });
 
     server.get('/app/search', async (request, reply) => {

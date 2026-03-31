@@ -1,6 +1,7 @@
 const APPLIED_JOBS_STORAGE_KEY = 'linkedin-jobs-applied-job-ids';
 const PREFERENCES_STORAGE_KEY = 'linkedin-jobs-frontend-preferences';
 const SESSION_PROFILE_STORAGE_KEY = 'linkedin-jobs-session-profile';
+const LEGACY_LOCAL_DEV_API_KEY = 'change-me-local-dev-api-key';
 
 const isBrowser = typeof document !== 'undefined';
 const page = isBrowser ? document.body.dataset.page ?? '' : '';
@@ -20,6 +21,9 @@ const previousPageButton = isBrowser ? document.querySelector('#previous-page') 
 const resetFiltersButton = isBrowser ? document.querySelector('#reset-filters') : null;
 const requestOtpButton = isBrowser ? document.querySelector('#request-otp') : null;
 const verifyOtpButton = isBrowser ? document.querySelector('#verify-otp') : null;
+const otpFieldRow = isBrowser ? document.querySelector('[data-otp-field]') : null;
+const otpSubmitRow = isBrowser ? document.querySelector('[data-otp-submit]') : null;
+const otpHint = isBrowser ? document.querySelector('[data-otp-hint]') : null;
 const openVisibleButton = isBrowser ? document.querySelector('#open-visible') : null;
 const clearAppliedButton = isBrowser ? document.querySelector('#clear-applied') : null;
 const sendEmailButton = isBrowser ? document.querySelector('#send-email-now') : null;
@@ -44,6 +48,9 @@ const copyApiKeyButton = isBrowser ? document.querySelector('#copy-api-key') : n
 
 let lastResponse = null;
 let lastVisibleItems = [];
+let otpRequested = false;
+let otpRequestedEmail = '';
+let uiLoading = false;
 
 if (isBrowser) {
     bootstrap();
@@ -62,6 +69,10 @@ function readFieldValue(fieldName, fallback = '') {
 
 function readTrimmedFieldValue(fieldName) {
     return readFieldValue(fieldName).trim();
+}
+
+function normalizeOtpValue(value) {
+    return `${value ?? ''}`.replace(/\D/g, '').slice(0, 6);
 }
 
 function readSelectedValues(fieldName) {
@@ -103,6 +114,8 @@ function appendCronPreset(cronValue) {
 function bootstrap() {
     hydratePreferences();
     renderSessionChrome();
+    syncOtpFormState();
+    window.addEventListener('storage', handleStorageUpdate);
 
     if (requiresAuth && !getActiveApiKey()) {
         redirectToLogin();
@@ -130,6 +143,8 @@ function bootstrap() {
     resetFiltersButton?.addEventListener('click', handleReset);
     requestOtpButton?.addEventListener('click', handleRequestOtp);
     verifyOtpButton?.addEventListener('click', handleVerifyOtp);
+    getField('signupEmail')?.addEventListener('input', handleAuthEmailInput);
+    getField('signupOtp')?.addEventListener('input', handleOtpInput);
     openVisibleButton?.addEventListener('click', openVisibleJobs);
     clearAppliedButton?.addEventListener('click', clearAppliedJobs);
     sendEmailButton?.addEventListener('click', handleSendEmail);
@@ -193,14 +208,12 @@ function bootstrap() {
 }
 
 function defaultApiKeyValue() {
-    if (!isBrowser) {
-        return '';
-    }
+    return '';
+}
 
-    const host = window.location.hostname;
-    return host === 'localhost' || host === '127.0.0.1'
-        ? 'change-me-local-dev-api-key'
-        : '';
+function normalizeApiKeyValue(value) {
+    const normalized = `${value ?? ''}`.trim();
+    return normalized === LEGACY_LOCAL_DEV_API_KEY ? '' : normalized;
 }
 
 function readStoredPreferences() {
@@ -243,13 +256,17 @@ function redirectToLogin() {
     window.location.replace(`/login?${params.toString()}`);
 }
 
+function getStoredApiKey(preferences = readStoredPreferences()) {
+    return normalizeApiKeyValue(preferences.apiKey);
+}
+
 function getActiveApiKey() {
-    const storedApiKey = `${readStoredPreferences().apiKey ?? ''}`.trim();
-    return apiKeyInput?.value?.trim?.() || storedApiKey || '';
+    const storedApiKey = getStoredApiKey();
+    return normalizeApiKeyValue(apiKeyInput?.value) || storedApiKey || '';
 }
 
 function setActiveApiKey(apiKey) {
-    const normalized = `${apiKey ?? ''}`.trim();
+    const normalized = normalizeApiKeyValue(apiKey);
     if (apiKeyInput) {
         apiKeyInput.value = normalized;
     }
@@ -299,11 +316,12 @@ function applyAuthGateState(isAuthenticated) {
 function renderSessionChrome(profile = getStoredSessionProfile()) {
     const preferences = readStoredPreferences();
     const isAuthenticated = Boolean(getActiveApiKey());
-    const email = profile?.email
+    const activeProfile = isAuthenticated ? profile : null;
+    const email = activeProfile?.email
         || readTrimmedFieldValue('signupEmail')
         || preferences.signupEmail
-        || (isAuthenticated ? 'Signed-in session ready' : 'Use email OTP to start a session');
-    const name = profile?.name
+        || (isAuthenticated ? 'Signed-in session ready' : 'Log in with email OTP');
+    const name = activeProfile?.name
         || readTrimmedFieldValue('signupName')
         || preferences.signupName
         || (isAuthenticated ? 'ApplyDesk user' : 'Guest');
@@ -324,6 +342,9 @@ function renderSessionChrome(profile = getStoredSessionProfile()) {
     guestOnlyNodes.forEach((node) => {
         node.hidden = isAuthenticated;
     });
+    signOutButtons.forEach((button) => {
+        button.hidden = !isAuthenticated;
+    });
 
     if (refreshSessionButton) {
         refreshSessionButton.disabled = !isAuthenticated;
@@ -336,6 +357,117 @@ function renderSessionChrome(profile = getStoredSessionProfile()) {
     if (requiresAuth) {
         applyAuthGateState(isAuthenticated);
     }
+}
+
+function syncAuthStateFromStorage() {
+    const storedApiKey = getStoredApiKey();
+
+    if (apiKeyInput) {
+        apiKeyInput.value = storedApiKey || defaultApiKeyValue();
+    }
+
+    const profile = storedApiKey ? getStoredSessionProfile() : null;
+    fillSessionFields(profile);
+    renderSessionChrome(profile);
+
+    if (requiresAuth && !storedApiKey) {
+        redirectToLogin();
+    }
+}
+
+function handleStorageUpdate(event) {
+    if (!event || ![PREFERENCES_STORAGE_KEY, SESSION_PROFILE_STORAGE_KEY].includes(event.key)) {
+        return;
+    }
+
+    syncAuthStateFromStorage();
+}
+
+function syncOtpFormState() {
+    if (authMode !== 'login') {
+        return;
+    }
+
+    const email = readTrimmedFieldValue('signupEmail');
+    const otpField = getField('signupOtp');
+    const otpValue = normalizeOtpValue(otpField?.value);
+    const hasOtp = otpValue.length === 6;
+
+    if (otpField && otpField.value !== otpValue) {
+        otpField.value = otpValue;
+    }
+
+    if (requestOtpButton) {
+        requestOtpButton.disabled = uiLoading || !email;
+    }
+
+    if (otpField) {
+        otpField.disabled = uiLoading || !otpRequested;
+    }
+
+    if (otpFieldRow) {
+        otpFieldRow.hidden = !otpRequested;
+    }
+
+    if (otpHint) {
+        otpHint.textContent = otpRequested ? 'Enter the 6-digit code.' : 'Request OTP first.';
+    }
+
+    if (otpSubmitRow) {
+        otpSubmitRow.hidden = !otpRequested || !hasOtp;
+    }
+
+    if (verifyOtpButton) {
+        verifyOtpButton.hidden = !otpRequested || !hasOtp;
+        verifyOtpButton.disabled = uiLoading || !hasOtp;
+    }
+}
+
+function resetOtpRequestState({ keepStatus = true } = {}) {
+    otpRequested = false;
+    otpRequestedEmail = '';
+
+    const otpField = getField('signupOtp');
+    if (otpField) {
+        otpField.value = '';
+    }
+
+    if (!keepStatus) {
+        hideStatus();
+    }
+
+    syncOtpFormState();
+}
+
+function activateOtpRequestState(email) {
+    otpRequested = true;
+    otpRequestedEmail = email;
+    syncOtpFormState();
+
+    const otpField = getField('signupOtp');
+    otpField?.focus();
+}
+
+function handleAuthEmailInput() {
+    const email = readTrimmedFieldValue('signupEmail');
+    const isSameRequestedEmail = otpRequested && email === otpRequestedEmail;
+
+    if (!isSameRequestedEmail && otpRequested) {
+        resetOtpRequestState();
+    } else {
+        syncOtpFormState();
+    }
+
+    persistPreferences();
+}
+
+function handleOtpInput() {
+    const otpField = getField('signupOtp');
+    if (otpField) {
+        otpField.value = normalizeOtpValue(otpField.value);
+    }
+
+    syncOtpFormState();
 }
 
 function normalizeSessionProfile(profile) {
@@ -495,11 +627,14 @@ async function handleRequestOtp() {
             }),
         });
         persistPreferences();
+        activateOtpRequestState(email);
         showStatus(`OTP sent to ${email}.`, 'success');
     } catch (error) {
+        resetOtpRequestState();
         showStatus(error.message, 'error');
     } finally {
         setLoadingState(false);
+        syncOtpFormState();
     }
 }
 
@@ -531,17 +666,13 @@ async function handleVerifyOtp() {
         if (otpField) {
             otpField.value = '';
         }
+        resetOtpRequestState();
         const profile = normalizeSessionProfile(response.user);
         saveSessionProfile(profile);
         fillSessionFields(profile);
         persistPreferences();
         renderSessionChrome(profile);
-        showStatus(
-            authMode === 'login'
-                ? `Logged in as ${response.user.email}. Redirecting to the dashboard.`
-                : `Account created for ${response.user.email}. Redirecting to the dashboard.`,
-            'success',
-        );
+        showStatus(`Signed in as ${response.user.email}. Redirecting to the dashboard.`, 'success');
         const redirectPath = getNextPath();
         if (redirectPath) {
             window.setTimeout(() => {
@@ -552,6 +683,7 @@ async function handleVerifyOtp() {
         showStatus(error.message, 'error');
     } finally {
         setLoadingState(false);
+        syncOtpFormState();
     }
 }
 
@@ -1018,20 +1150,20 @@ function updateSummary(visibleCount = 0) {
 }
 
 function setLoadingState(isLoading) {
+    uiLoading = isLoading;
+
     if (requestOtpButton) {
-        requestOtpButton.disabled = isLoading;
+        requestOtpButton.disabled = isLoading || !readTrimmedFieldValue('signupEmail');
         requestOtpButton.textContent = isLoading ? 'Working…' : 'Send OTP';
     }
 
     if (verifyOtpButton) {
-        verifyOtpButton.disabled = isLoading;
+        verifyOtpButton.disabled = isLoading || normalizeOtpValue(readTrimmedFieldValue('signupOtp')).length !== 6;
         verifyOtpButton.textContent = isLoading
             ? 'Working…'
-            : authMode === 'signup'
-            ? 'Create Account'
             : authMode === 'login'
-            ? 'Log In'
-            : 'Verify And Use API Key';
+            ? 'Continue'
+            : 'Verify OTP';
     }
 
     if (searchButton) {
@@ -1354,7 +1486,7 @@ function persistPreferences() {
 
     const preferences = {
         ...existing,
-        apiKey: apiKeyInput?.value ?? existing.apiKey ?? '',
+        apiKey: normalizeApiKeyValue(apiKeyInput?.value) || getStoredApiKey(existing) || '',
         hideApplied: hideAppliedInput?.checked ?? true,
         signupName: readValue('signupName'),
         signupEmail: readValue('signupEmail'),
@@ -1391,9 +1523,16 @@ function hydratePreferences() {
         if (!preferences || typeof preferences !== 'object') {
             return;
         }
+        const normalizedStoredApiKey = normalizeApiKeyValue(preferences.apiKey);
+        if (normalizedStoredApiKey !== `${preferences.apiKey ?? ''}`) {
+            writeStoredPreferences({
+                ...preferences,
+                apiKey: normalizedStoredApiKey,
+            });
+        }
 
         if (apiKeyInput) {
-            apiKeyInput.value = preferences.apiKey || apiKeyInput.value;
+            apiKeyInput.value = normalizedStoredApiKey || apiKeyInput.value;
         }
         if (hideAppliedInput) {
             hideAppliedInput.checked = preferences.hideApplied ?? true;
@@ -1438,6 +1577,8 @@ function hydratePreferences() {
                 option.selected = values.includes(option.value);
             }
         }
+
+        syncOtpFormState();
     } catch {
         if (apiKeyInput) {
             apiKeyInput.value = defaultApiKeyValue();

@@ -14,7 +14,7 @@
                     <span class="brand__mark">AD</span>
                     <span class="brand__text">
                         <strong>ApplyDesk Cloud</strong>
-                        <span>Stay updated on new matching roles</span>
+                        <span>Alerts</span>
                     </span>
                 </a>
 
@@ -26,10 +26,9 @@
                 </nav>
 
                 <div class="topbar__actions">
-                    <span class="session-user" data-session-email>Alerts open after login</span>
-                    <a class="button button--ghost" data-guest-only href="/login">Log In</a>
-                    <a class="button button--primary" data-guest-only href="/signup">Sign Up</a>
-                    <a class="button button--primary" data-auth-only hidden href="/app/search">Open Search</a>
+                    <span class="session-user" data-session-email>Login required</span>
+                    <a class="button button--primary" data-guest-only href="/login">Log In</a>
+                    <a class="button button--primary" data-auth-only hidden href="/app/search">Search</a>
                     <button type="button" class="button button--ghost" data-signout hidden>Log Out</button>
                 </div>
             </div>
@@ -39,12 +38,9 @@
         <main class="site-main">
             <section class="page-hero">
                 <div class="page-hero__copy">
-                    <p class="section-heading__eyebrow">Job alerts</p>
-                    <h1>Turn strong searches into alerts that keep you updated.</h1>
-                    <p>
-                        Save the searches that matter to you, choose where updates should be sent,
-                        and stay aware of fresh roles without running the same search again and again.
-                    </p>
+                    <p class="section-heading__eyebrow">Alerts</p>
+                    <h1>Save job alerts.</h1>
+                    <p>Reuse a search and get updates.</p>
                 </div>
 
                 <aside class="page-hero__panel">
@@ -61,38 +57,35 @@
                     <div class="workspace-header workspace-header--stacked">
                         <div>
                             <p class="section-heading__eyebrow">Alerts</p>
-                            <h2>Build recurring job alerts from one search profile.</h2>
-                            <p>
-                                Save one or more schedules for the kinds of jobs you want.
-                                You can reuse the same search profile and adjust it whenever your goals change.
-                            </p>
+                            <h2>Create and manage alerts.</h2>
+                            <p>Save schedules from one search.</p>
                         </div>
 
                         <div class="workspace-badges">
-                            <span>Multiple schedules</span>
-                            <span>Reusable alert profiles</span>
-                            <span>Instant test email</span>
+                            <span>Schedules</span>
+                            <span>Profiles</span>
+                            <span>Test email</span>
                             <span>Saved alerts</span>
                         </div>
                     </div>
 
                     <div class="workspace-stats">
                         <article class="stat-card">
-                            <span class="stat-card__label">Flexible setup</span>
-                            <strong class="stat-card__value">Save more than one schedule</strong>
-                            <p>You can save multiple schedules for the same search so updates arrive when you want them.</p>
+                            <span class="stat-card__label">Schedules</span>
+                            <strong class="stat-card__value">Save more than one</strong>
+                            <p>Use multiple schedules for one search.</p>
                         </article>
 
                         <article class="stat-card">
-                            <span class="stat-card__label">Best approach</span>
+                            <span class="stat-card__label">Workflow</span>
                             <strong class="stat-card__value">Test, then save</strong>
-                            <p>Send a test email first, then save the alert once the role mix and match scores look right.</p>
+                            <p>Check the email before saving.</p>
                         </article>
 
                         <article class="stat-card">
-                            <span class="stat-card__label">Why use alerts</span>
-                            <strong class="stat-card__value">Stay early on new roles</strong>
-                            <p>Alerts help you catch relevant openings sooner instead of checking manually throughout the day.</p>
+                            <span class="stat-card__label">Benefit</span>
+                            <strong class="stat-card__value">Stay updated</strong>
+                            <p>Let new roles come to you.</p>
                         </article>
                     </div>
 
@@ -100,8 +93,8 @@
                         <section class="panel panel--form">
                             <div class="panel__header">
                                 <div>
-                                    <h2>Create Alert</h2>
-                                    <p class="muted">Save a named alert with your preferred role filters, resume match rules, and schedule.</p>
+                                    <h2>Create alert</h2>
+                                    <p class="muted">Name it, set filters, add a schedule.</p>
                                 </div>
                                 <button type="button" id="reset-filters" class="button button--ghost">Reset</button>
                             </div>
@@ -110,8 +103,8 @@
                                 <section class="section-card field--full">
                                     <div class="section-card__header">
                                         <div>
-                                            <h3>Alert Identity</h3>
-                                            <p>Name the alert and choose where updates should be sent.</p>
+                                            <h3>Alert</h3>
+                                            <p>Name and delivery email.</p>
                                         </div>
                                     </div>
 
@@ -131,8 +124,8 @@
                                 <section class="section-card field--full">
                                     <div class="section-card__header">
                                         <div>
-                                            <h3>Search Profile</h3>
-                                            <p>Everything here is reused for each saved alert schedule.</p>
+                                            <h3>Search</h3>
+                                            <p>Reuse these filters for each run.</p>
                                         </div>
                                     </div>
 
@@ -223,8 +216,8 @@
                                 <section class="section-card field--full">
                                     <div class="section-card__header">
                                         <div>
-                                            <h3>Resume Match Settings</h3>
-                                            <p>Attach your resume and choose how closely alert results should match it.</p>
+                                            <h3>Resume match</h3>
+                                            <p>Add a resume and score range.</p>
                                         </div>
                                     </div>
 
@@ -269,7 +262,7 @@
                                     <div class="section-card__header">
                                         <div>
                                             <h3>Schedule</h3>
-                                            <p>Add one schedule per line. Each line becomes a separate saved alert for your account.</p>
+                                            <p>One line per saved alert.</p>
                                         </div>
                                     </div>
 
@@ -303,8 +296,8 @@
                         <section class="panel panel--results">
                             <div class="panel__header panel__header--compact">
                                 <div>
-                                    <h2>Saved Alerts</h2>
-                                    <p id="alerts-summary" class="muted">View, reload, and manage your saved job alerts.</p>
+                                    <h2>Saved alerts</h2>
+                                    <p id="alerts-summary" class="muted">View and manage saved alerts.</p>
                                 </div>
                             </div>
 

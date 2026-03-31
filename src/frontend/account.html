@@ -14,7 +14,7 @@
                     <span class="brand__mark">AD</span>
                     <span class="brand__text">
                         <strong>ApplyDesk Cloud</strong>
-                        <span>Your job search dashboard</span>
+                        <span>Dashboard</span>
                     </span>
                 </a>
 
@@ -26,10 +26,9 @@
                 </nav>
 
                 <div class="topbar__actions">
-                    <span class="session-user" data-session-email>Load a session to unlock the dashboard</span>
-                    <a class="button button--ghost" data-guest-only href="/login">Log In</a>
-                    <a class="button button--primary" data-guest-only href="/signup">Sign Up</a>
-                    <a class="button button--primary" data-auth-only hidden href="/app/search">Open Search</a>
+                    <span class="session-user" data-session-email>Login required</span>
+                    <a class="button button--primary" data-guest-only href="/login">Log In</a>
+                    <a class="button button--primary" data-auth-only hidden href="/app/search">Search</a>
                     <button type="button" class="button button--ghost" data-signout hidden>Log Out</button>
                 </div>
             </div>
@@ -40,8 +39,8 @@
             <section class="page-hero">
                 <div class="page-hero__copy">
                     <p class="section-heading__eyebrow">Dashboard</p>
-                    <h1>Your account, searches, and alerts in one place.</h1>
-                    <p>Use the dashboard to confirm your account, jump into job search, and manage alerts without bouncing between pages.</p>
+                    <h1>Your account.</h1>
+                    <p>Session, key, and shortcuts.</p>
                 </div>
 
                 <aside class="page-hero__panel">
@@ -62,12 +61,11 @@
                             <div>
                                 <span class="dashboard-card__label">Your account</span>
                                 <h2 data-session-name>ApplyDesk user</h2>
-                                <p class="muted">Your account is already active in this browser, so you can move straight into search and alerts.</p>
+                                <p class="muted">Signed in and ready.</p>
                             </div>
                             <div class="workspace-badges">
                                 <span data-session-state>Signed in</span>
-                                <span>Email verified</span>
-                                <span>Ready to search</span>
+                                <span>Verified</span>
                             </div>
                         </div>
 
@@ -88,25 +86,25 @@
                             </label>
 
                             <div class="actions field--full">
-                                <button type="button" id="refresh-session" class="button button--ghost">Refresh Session</button>
-                                <button type="button" id="copy-api-key" class="button button--ghost">Copy API Key</button>
-                                <a class="button button--primary" href="/app/search">Go To Search</a>
+                                <button type="button" id="refresh-session" class="button button--ghost">Refresh</button>
+                                <button type="button" id="copy-api-key" class="button button--ghost">Copy Key</button>
+                                <a class="button button--primary" href="/app/search">Search</a>
                             </div>
                         </form>
                     </article>
 
                     <article class="dashboard-card">
-                        <span class="dashboard-card__label">Next step</span>
-                        <h3>Search live roles</h3>
-                        <p>Search for roles that fit your goals, use your resume for better ranking, and review what to apply to next.</p>
-                        <a class="button button--ghost" href="/app/search">Open Search</a>
+                        <span class="dashboard-card__label">Next</span>
+                        <h3>Search</h3>
+                        <p>Find jobs and check fit.</p>
+                        <a class="button button--ghost" href="/app/search">Search</a>
                     </article>
 
                     <article class="dashboard-card">
-                        <span class="dashboard-card__label">Stay updated</span>
-                        <h3>Manage job alerts</h3>
-                        <p>Save your preferred searches and get updates when fresh roles appear that match what you want.</p>
-                        <a class="button button--ghost" href="/app/alerts">Open Alerts</a>
+                        <span class="dashboard-card__label">Alerts</span>
+                        <h3>Alerts</h3>
+                        <p>Save searches and get updates.</p>
+                        <a class="button button--ghost" href="/app/alerts">Alerts</a>
                     </article>
                 </section>
             </section>
