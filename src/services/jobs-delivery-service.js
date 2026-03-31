@@ -27,11 +27,13 @@ function validateEmail(value) {
     return normalized;
 }
 
+function normalizeAlertName(value) {
+    const normalized = `${value ?? ''}`.trim();
+    return normalized ? normalized.slice(0, 100) : null;
+}
+
 function normalizeCronExpression(value) {
     const cronExpression = `${value ?? ''}`.trim();
-    if (!cronExpression) {
-        throw httpError(400, 'Input field "cronExpression" is required for email alerts.');
-    }
 
     try {
         CronExpressionParser.parse(cronExpression);
@@ -40,6 +42,48 @@ function normalizeCronExpression(value) {
     }
 
     return cronExpression;
+}
+
+function normalizeCronExpressions(value) {
+    const candidates = Array.isArray(value)
+        ? value
+        : typeof value === 'string'
+        ? value.split(/\r?\n+/g)
+        : value == null
+        ? []
+        : [value];
+
+    const cronExpressions = [...new Set(candidates
+        .map((candidate) => `${candidate ?? ''}`.trim())
+        .filter(Boolean)
+        .map(normalizeCronExpression))];
+
+    if (cronExpressions.length === 0) {
+        throw httpError(400, 'Provide at least one valid cron expression for email alerts.');
+    }
+
+    return cronExpressions;
+}
+
+function summarizeStoredSearchInput(searchInput = {}) {
+    return {
+        title: searchInput.title ?? null,
+        location: searchInput.location ?? null,
+        companyName: searchInput.companyName ?? [],
+        companyId: searchInput.companyId ?? [],
+        publishedAt: searchInput.publishedAt ?? null,
+        workType: searchInput.workType ?? [],
+        contractType: searchInput.contractType ?? [],
+        experienceLevel: searchInput.experienceLevel ?? [],
+        rows: searchInput.rows ?? null,
+        pageNumber: searchInput.pageNumber ?? null,
+        requestDelayMs: searchInput.requestDelayMs ?? null,
+        detailConcurrency: searchInput.detailConcurrency ?? null,
+        resumeUrl: searchInput.resumeUrl ?? null,
+        hasResumeFile: Boolean(searchInput.resumeFile),
+        resumeMatchMinScore: searchInput.resumeMatchMinScore ?? null,
+        resumeMatchMaxScore: searchInput.resumeMatchMaxScore ?? null,
+    };
 }
 
 function serializeResumeFile(resumeFile) {
@@ -67,7 +111,7 @@ function deserializeResumeFile(serializedResumeFile) {
 }
 
 function serializeSearchInput(rawInput = {}) {
-    const { deliveryEmail, cronExpression, ...searchInput } = rawInput;
+    const { deliveryEmail, cronExpression, cronExpressions, alertName, ...searchInput } = rawInput;
     return {
         ...searchInput,
         resumeFile: serializeResumeFile(searchInput.resumeFile),
@@ -96,6 +140,7 @@ function summarizeAlert(alert) {
 
     return {
         id: alert.id,
+        alertName: alert.alertName ?? null,
         recipientEmail: alert.recipientEmail,
         cronExpression: alert.cronExpression,
         createdAt: alert.createdAt,
@@ -108,6 +153,7 @@ function summarizeAlert(alert) {
         totalJobsSent: alert.totalJobsSent ?? 0,
         lastError: alert.lastError ?? null,
         searchMetadata: alert.searchMetadata ?? null,
+        searchInputSummary: summarizeStoredSearchInput(alert.searchInput),
     };
 }
 
@@ -194,12 +240,16 @@ export function createJobsDeliveryService({
     async function createAlert(rawInput, { identity } = {}) {
         ensureEmailConfigured();
         const recipientEmail = validateEmail(rawInput.deliveryEmail);
-        const cronExpression = normalizeCronExpression(rawInput.cronExpression);
+        const alertName = normalizeAlertName(rawInput.alertName);
+        const cronExpressions = normalizeCronExpressions(rawInput.cronExpressions ?? rawInput.cronExpression);
         const searchInput = serializeSearchInput(rawInput);
         const searchMetadata = toSearchMetadata(normalizeScrapeInput(deserializeSearchInput(searchInput)));
         const createdAt = new Date().toISOString();
-        const alert = {
+        const alerts = cronExpressions.map((cronExpression, index) => ({
             id: randomUUID(),
+            alertName: cronExpressions.length > 1
+                ? `${alertName || searchMetadata.title || 'Alert'} ${index + 1}`
+                : alertName,
             recipientEmail,
             cronExpression,
             createdAt,
@@ -216,10 +266,13 @@ export function createJobsDeliveryService({
             sentJobIds: [],
             searchMetadata,
             searchInput,
-        };
+        }));
 
-        await alertRepository.saveAlert(alert);
-        return summarizeAlert(alert);
+        for (const alert of alerts) {
+            await alertRepository.saveAlert(alert);
+        }
+
+        return alerts.map(summarizeAlert);
     }
 
     async function listAlerts({ identity } = {}) {
@@ -381,6 +434,7 @@ export function createJobsDeliveryService({
     return {
         sendInstant,
         createAlert,
+        createAlerts: createAlert,
         listAlerts,
         deleteAlert,
         processDueAlerts,

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ApplyDesk Cloud | Dashboard</title>
+    <link rel="stylesheet" href="/app/styles.css">
+</head>
+<body data-page="account" data-requires-auth="true">
+    <div class="page-shell">
+        <header class="app-header">
+            <div class="topbar">
+                <a class="brand" href="/">
+                    <span class="brand__mark">AD</span>
+                    <span class="brand__text">
+                        <strong>ApplyDesk Cloud</strong>
+                        <span>Your job search dashboard</span>
+                    </span>
+                </a>
+
+                <nav class="topbar__nav" aria-label="Primary">
+                    <a href="/">Home</a>
+                    <a href="/app/account" aria-current="page">Dashboard</a>
+                    <a href="/app/search">Search</a>
+                    <a href="/app/alerts">Alerts</a>
+                </nav>
+
+                <div class="topbar__actions">
+                    <span class="session-user" data-session-email>Load a session to unlock the dashboard</span>
+                    <a class="button button--ghost" data-guest-only href="/login">Log In</a>
+                    <a class="button button--primary" data-guest-only href="/signup">Sign Up</a>
+                    <a class="button button--primary" data-auth-only hidden href="/app/search">Open Search</a>
+                    <button type="button" class="button button--ghost" data-signout hidden>Log Out</button>
+                </div>
+            </div>
+
+        </header>
+
+        <main class="site-main">
+            <section class="page-hero">
+                <div class="page-hero__copy">
+                    <p class="section-heading__eyebrow">Dashboard</p>
+                    <h1>Your account, searches, and alerts in one place.</h1>
+                    <p>Use the dashboard to confirm your account, jump into job search, and manage alerts without bouncing between pages.</p>
+                </div>
+
+                <aside class="page-hero__panel">
+                    <article class="dashboard-card dashboard-card--highlight">
+                        <span class="dashboard-card__label">Account status</span>
+                        <strong class="dashboard-card__value" data-session-state>Guest mode</strong>
+                        <p data-session-email>Sign in to view your account details.</p>
+                    </article>
+                </aside>
+            </section>
+
+            <section data-protected-content>
+                <div id="status-banner" class="status-banner" hidden></div>
+
+                <section class="dashboard-grid">
+                    <article class="dashboard-card dashboard-card--wide">
+                        <div class="dashboard-card__header">
+                            <div>
+                                <span class="dashboard-card__label">Your account</span>
+                                <h2 data-session-name>ApplyDesk user</h2>
+                                <p class="muted">Your account is already active in this browser, so you can move straight into search and alerts.</p>
+                            </div>
+                            <div class="workspace-badges">
+                                <span data-session-state>Signed in</span>
+                                <span>Email verified</span>
+                                <span>Ready to search</span>
+                            </div>
+                        </div>
+
+                        <form id="account-form" class="form-grid">
+                            <label class="field field--full">
+                                <span>API key</span>
+                                <input id="api-key" name="apiKey" type="password" autocomplete="off" readonly placeholder="Your active API key">
+                            </label>
+
+                            <label class="field">
+                                <span>Name</span>
+                                <input name="signupName" type="text" readonly placeholder="Loaded from your verified session">
+                            </label>
+
+                            <label class="field">
+                                <span>Email</span>
+                                <input name="signupEmail" type="email" readonly placeholder="Loaded from your verified session">
+                            </label>
+
+                            <div class="actions field--full">
+                                <button type="button" id="refresh-session" class="button button--ghost">Refresh Session</button>
+                                <button type="button" id="copy-api-key" class="button button--ghost">Copy API Key</button>
+                                <a class="button button--primary" href="/app/search">Go To Search</a>
+                            </div>
+                        </form>
+                    </article>
+
+                    <article class="dashboard-card">
+                        <span class="dashboard-card__label">Next step</span>
+                        <h3>Search live roles</h3>
+                        <p>Search for roles that fit your goals, use your resume for better ranking, and review what to apply to next.</p>
+                        <a class="button button--ghost" href="/app/search">Open Search</a>
+                    </article>
+
+                    <article class="dashboard-card">
+                        <span class="dashboard-card__label">Stay updated</span>
+                        <h3>Manage job alerts</h3>
+                        <p>Save your preferred searches and get updates when fresh roles appear that match what you want.</p>
+                        <a class="button button--ghost" href="/app/alerts">Open Alerts</a>
+                    </article>
+                </section>
+            </section>
+        </main>
+    </div>
+
+    <script type="module" src="/app/app.js"></script>
+</body>
+</html>

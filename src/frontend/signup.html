@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ApplyDesk Cloud | Sign Up</title>
+    <link rel="stylesheet" href="/app/styles.css">
+</head>
+<body data-page="signup" data-auth-mode="signup" data-auth-redirect="/app/account">
+    <div class="page-shell">
+        <header class="app-header">
+            <div class="topbar">
+                <a class="brand" href="/">
+                    <span class="brand__mark">AD</span>
+                    <span class="brand__text">
+                        <strong>ApplyDesk Cloud</strong>
+                        <span>Start your personal job search account</span>
+                    </span>
+                </a>
+
+                <nav class="topbar__nav" aria-label="Primary">
+                    <a href="/">Home</a>
+                    <a href="/login">Log In</a>
+                    <a href="/signup" aria-current="page">Sign Up</a>
+                    <a href="/app/account">Dashboard</a>
+                </nav>
+
+                <div class="topbar__actions">
+                    <span class="session-user" data-session-email>Create your account with email OTP</span>
+                    <a class="button button--ghost" data-guest-only href="/login">Already signed up?</a>
+                    <a class="button button--primary" data-auth-only hidden href="/app/account">Go To Dashboard</a>
+                    <button type="button" class="button button--ghost" data-signout hidden>Log Out</button>
+                </div>
+            </div>
+        </header>
+
+        <main class="site-main">
+            <section class="auth-layout">
+                <article class="auth-panel auth-panel--story">
+                    <p class="section-heading__eyebrow">Sign up</p>
+                    <h1>Create your account in one quick step.</h1>
+                    <p>Enter your name and email, request the one-time password, and verify it. After that, your search dashboard is ready.</p>
+
+                    <div class="auth-checklist">
+                        <span>Email OTP signup</span>
+                        <span>No password setup</span>
+                        <span>Your account opens after verify</span>
+                    </div>
+
+                    <div class="auth-story-card auth-story-card--warm">
+                        <p class="hero-card__kicker">Get started</p>
+                        <h2>Set up your account and start finding better-fit roles.</h2>
+                        <p>ApplyDesk helps you search jobs, compare them with your resume, and stay updated when new roles appear.</p>
+                    </div>
+                </article>
+
+                <section class="auth-panel auth-panel--form">
+                    <div class="auth-card">
+                        <div class="auth-card__header">
+                            <div>
+                                <p class="section-heading__eyebrow">Sign up</p>
+                                <h2>Create your account and verify OTP</h2>
+                                <p class="muted">We send the OTP to the email below and sign you in after verification.</p>
+                            </div>
+                        </div>
+
+                        <div id="status-banner" class="status-banner" hidden></div>
+
+                        <form id="account-form" class="form-grid form-grid--auth">
+                            <label class="field field--full">
+                                <span>Full name</span>
+                                <input name="signupName" type="text" placeholder="Your name" autocomplete="name">
+                            </label>
+
+                            <label class="field field--full">
+                                <span>Email</span>
+                                <input name="signupEmail" type="email" placeholder="you@example.com" autocomplete="email">
+                            </label>
+
+                            <label class="field field--full">
+                                <span>One-time password</span>
+                                <input name="signupOtp" type="text" inputmode="numeric" maxlength="6" placeholder="123456">
+                            </label>
+
+                            <div class="actions field--full">
+                                <button type="button" id="request-otp" class="button button--ghost">Send OTP</button>
+                                <button type="button" id="verify-otp" class="button button--primary">Create Account</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+            </section>
+        </main>
+
+        <footer class="site-footer">
+            <div class="site-footer__brand">
+                <strong>ApplyDesk Cloud</strong>
+                <p>Create an account, verify by email OTP, and start your job search without delay.</p>
+            </div>
+
+            <nav class="site-footer__nav" aria-label="Footer">
+                <a href="/">Home</a>
+                <a href="/terms">Terms &amp; Conditions</a>
+                <a href="/contact">Contact Us</a>
+                <a href="/login">Log In</a>
+            </nav>
+        </footer>
+    </div>
+
+    <script type="module" src="/app/app.js"></script>
+</body>
+</html>

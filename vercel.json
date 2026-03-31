@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "crons": [
+    {
+      "path": "/v1/jobs/alerts/process",
+      "schedule": "0 9 * * *"
+    }
+  ],
+  "routes": [
+    { "src": "^/$", "dest": "/api/web?path=/" },
+    { "src": "^/(login|signup|terms|contact)/?$", "dest": "/api/web?path=/$1" },
+    { "src": "^/health$", "dest": "/api/health" },
+    { "src": "^/app(?:/(.*))?$", "dest": "/api/app?path=$1" },
+    { "src": "^/v1(?:/(.*))?$", "dest": "/api/v1?path=$1" }
+  ]
+}

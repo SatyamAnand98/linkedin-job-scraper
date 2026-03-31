@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ApplyDesk Cloud | Job Alerts</title>
+    <link rel="stylesheet" href="/app/styles.css">
+</head>
+<body data-page="alerts" data-requires-auth="true">
+    <div class="page-shell">
+        <header class="app-header">
+            <div class="topbar">
+                <a class="brand" href="/">
+                    <span class="brand__mark">AD</span>
+                    <span class="brand__text">
+                        <strong>ApplyDesk Cloud</strong>
+                        <span>Stay updated on new matching roles</span>
+                    </span>
+                </a>
+
+                <nav class="topbar__nav" aria-label="Primary">
+                    <a href="/">Home</a>
+                    <a href="/app/account">Dashboard</a>
+                    <a href="/app/search">Search</a>
+                    <a href="/app/alerts" aria-current="page">Alerts</a>
+                </nav>
+
+                <div class="topbar__actions">
+                    <span class="session-user" data-session-email>Alerts open after login</span>
+                    <a class="button button--ghost" data-guest-only href="/login">Log In</a>
+                    <a class="button button--primary" data-guest-only href="/signup">Sign Up</a>
+                    <a class="button button--primary" data-auth-only hidden href="/app/search">Open Search</a>
+                    <button type="button" class="button button--ghost" data-signout hidden>Log Out</button>
+                </div>
+            </div>
+
+        </header>
+
+        <main class="site-main">
+            <section class="page-hero">
+                <div class="page-hero__copy">
+                    <p class="section-heading__eyebrow">Job alerts</p>
+                    <h1>Turn strong searches into alerts that keep you updated.</h1>
+                    <p>
+                        Save the searches that matter to you, choose where updates should be sent,
+                        and stay aware of fresh roles without running the same search again and again.
+                    </p>
+                </div>
+
+                <aside class="page-hero__panel">
+                    <article class="dashboard-card dashboard-card--highlight">
+                        <span class="dashboard-card__label">Signed in as</span>
+                        <strong class="dashboard-card__value" data-session-name>ApplyDesk user</strong>
+                        <p data-session-email>Your saved alerts stay attached to your account.</p>
+                    </article>
+                </aside>
+            </section>
+
+            <section data-protected-content>
+                <section class="workspace-shell workspace-shell--alerts">
+                    <div class="workspace-header workspace-header--stacked">
+                        <div>
+                            <p class="section-heading__eyebrow">Alerts</p>
+                            <h2>Build recurring job alerts from one search profile.</h2>
+                            <p>
+                                Save one or more schedules for the kinds of jobs you want.
+                                You can reuse the same search profile and adjust it whenever your goals change.
+                            </p>
+                        </div>
+
+                        <div class="workspace-badges">
+                            <span>Multiple schedules</span>
+                            <span>Reusable alert profiles</span>
+                            <span>Instant test email</span>
+                            <span>Saved alerts</span>
+                        </div>
+                    </div>
+
+                    <div class="workspace-stats">
+                        <article class="stat-card">
+                            <span class="stat-card__label">Flexible setup</span>
+                            <strong class="stat-card__value">Save more than one schedule</strong>
+                            <p>You can save multiple schedules for the same search so updates arrive when you want them.</p>
+                        </article>
+
+                        <article class="stat-card">
+                            <span class="stat-card__label">Best approach</span>
+                            <strong class="stat-card__value">Test, then save</strong>
+                            <p>Send a test email first, then save the alert once the role mix and match scores look right.</p>
+                        </article>
+
+                        <article class="stat-card">
+                            <span class="stat-card__label">Why use alerts</span>
+                            <strong class="stat-card__value">Stay early on new roles</strong>
+                            <p>Alerts help you catch relevant openings sooner instead of checking manually throughout the day.</p>
+                        </article>
+                    </div>
+
+                    <section class="layout layout--alerts">
+                        <section class="panel panel--form">
+                            <div class="panel__header">
+                                <div>
+                                    <h2>Create Alert</h2>
+                                    <p class="muted">Save a named alert with your preferred role filters, resume match rules, and schedule.</p>
+                                </div>
+                                <button type="button" id="reset-filters" class="button button--ghost">Reset</button>
+                            </div>
+
+                            <form id="search-form" class="form-grid">
+                                <section class="section-card field--full">
+                                    <div class="section-card__header">
+                                        <div>
+                                            <h3>Alert Identity</h3>
+                                            <p>Name the alert and choose where updates should be sent.</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="section-card__grid">
+                                        <label class="field">
+                                            <span>Alert name</span>
+                                            <input name="alertName" type="text" placeholder="Bengaluru PM - mornings">
+                                        </label>
+
+                                        <label class="field">
+                                            <span>Email for alerts</span>
+                                            <input name="deliveryEmail" type="email" placeholder="you@example.com">
+                                        </label>
+                                    </div>
+                                </section>
+
+                                <section class="section-card field--full">
+                                    <div class="section-card__header">
+                                        <div>
+                                            <h3>Search Profile</h3>
+                                            <p>Everything here is reused for each saved alert schedule.</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="section-card__grid">
+                                        <label class="field field--full">
+                                            <span>Job title</span>
+                                            <input name="title" type="text" placeholder="Product Manager">
+                                        </label>
+
+                                        <label class="field">
+                                            <span>Location</span>
+                                            <input name="location" type="text" placeholder="Bengaluru">
+                                        </label>
+
+                                        <label class="field">
+                                            <span>Jobs per alert</span>
+                                            <input name="rows" type="number" min="1" max="1000" value="10">
+                                        </label>
+
+                                        <label class="field">
+                                            <span>Page number</span>
+                                            <input name="pageNumber" type="number" min="1" max="1000" value="1">
+                                        </label>
+
+                                        <label class="field">
+                                            <span>Posted within</span>
+                                            <select name="publishedAt">
+                                                <option value="">Any time</option>
+                                                <option value="r86400">Past 24 hours</option>
+                                                <option value="r604800">Past week</option>
+                                                <option value="r2592000">Past month</option>
+                                            </select>
+                                        </label>
+
+                                        <label class="field">
+                                            <span>Company names</span>
+                                            <input name="companyName" type="text" placeholder="Google, Microsoft">
+                                        </label>
+
+                                        <label class="field">
+                                            <span>Company IDs</span>
+                                            <input name="companyId" type="text" placeholder="76987811, 1815218">
+                                        </label>
+
+                                        <label class="field">
+                                            <span class="field__header">
+                                                <span>Work type</span>
+                                                <button type="button" class="field__clear" data-reset-target="workType">Clear</button>
+                                            </span>
+                                            <select name="workType" multiple size="3">
+                                                <option value="1">On-site</option>
+                                                <option value="2">Remote</option>
+                                                <option value="3">Hybrid</option>
+                                            </select>
+                                        </label>
+
+                                        <label class="field">
+                                            <span class="field__header">
+                                                <span>Contract type</span>
+                                                <button type="button" class="field__clear" data-reset-target="contractType">Clear</button>
+                                            </span>
+                                            <select name="contractType" multiple size="6">
+                                                <option value="F">Full-time</option>
+                                                <option value="P">Part-time</option>
+                                                <option value="C">Contract</option>
+                                                <option value="T">Temporary</option>
+                                                <option value="V">Volunteer</option>
+                                                <option value="I">Internship</option>
+                                            </select>
+                                        </label>
+
+                                        <label class="field">
+                                            <span class="field__header">
+                                                <span>Experience level</span>
+                                                <button type="button" class="field__clear" data-reset-target="experienceLevel">Clear</button>
+                                            </span>
+                                            <select name="experienceLevel" multiple size="5">
+                                                <option value="1">Internship</option>
+                                                <option value="2">Entry level</option>
+                                                <option value="3">Associate</option>
+                                                <option value="4">Mid-Senior level</option>
+                                                <option value="5">Director</option>
+                                            </select>
+                                        </label>
+                                    </div>
+                                </section>
+
+                                <section class="section-card field--full">
+                                    <div class="section-card__header">
+                                        <div>
+                                            <h3>Resume Match Settings</h3>
+                                            <p>Attach your resume and choose how closely alert results should match it.</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="section-card__grid">
+                                        <label class="field field--full">
+                                            <span>Resume URL</span>
+                                            <input name="resumeUrl" type="url" placeholder="https://example.com/resume.pdf">
+                                        </label>
+
+                                        <label class="field field--full">
+                                            <span class="field__header">
+                                                <span>Resume file</span>
+                                                <button type="button" class="field__clear" data-reset-target="resumeFile">Clear</button>
+                                            </span>
+                                            <input name="resumeFile" type="file" accept=".pdf,.docx,.txt,.md,.html,.htm,.json,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+                                            <span id="resume-file-state" class="field__hint">No file selected</span>
+                                        </label>
+
+                                        <label class="field">
+                                            <span>Min score</span>
+                                            <input name="resumeMatchMinScore" type="number" min="1" max="10" step="0.1" placeholder="7">
+                                        </label>
+
+                                        <label class="field">
+                                            <span>Max score</span>
+                                            <input name="resumeMatchMaxScore" type="number" min="1" max="10" step="0.1" placeholder="10">
+                                        </label>
+
+                                        <label class="field">
+                                            <span>Search delay ms</span>
+                                            <input name="requestDelayMs" type="number" min="0" max="10000" value="600">
+                                        </label>
+
+                                        <label class="field">
+                                            <span>Detail loading</span>
+                                            <input name="detailConcurrency" type="number" min="1" max="10" value="3">
+                                        </label>
+                                    </div>
+                                </section>
+
+                                <section class="section-card field--full">
+                                    <div class="section-card__header">
+                                        <div>
+                                            <h3>Schedule</h3>
+                                            <p>Add one schedule per line. Each line becomes a separate saved alert for your account.</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="section-card__grid">
+                                        <div class="field field--full">
+                                            <span>Quick presets</span>
+                                            <div class="preset-row">
+                                                <button type="button" class="button button--ghost button--small" data-cron-value="0 * * * *">Hourly</button>
+                                                <button type="button" class="button button--ghost button--small" data-cron-value="*/15 * * * *">Every 15 min</button>
+                                                <button type="button" class="button button--ghost button--small" data-cron-value="0 */6 * * *">Every 6 hours</button>
+                                                <button type="button" class="button button--ghost button--small" data-cron-value="0 9 * * *">Daily 9:00</button>
+                                            </div>
+                                        </div>
+
+                                        <label class="field field--full">
+                                            <span>Schedules</span>
+                                            <textarea name="cronExpression" rows="5" placeholder="0 * * * *&#10;0 18 * * 1-5"></textarea>
+                                            <span class="field__hint">Each line creates a separate alert. Duplicate lines are ignored.</span>
+                                        </label>
+
+                                        <div class="actions field--full">
+                                            <button type="button" id="send-email-now" class="button button--ghost">Send Test Email</button>
+                                            <button type="button" id="save-email-alert" class="button button--primary">Save Alerts</button>
+                                            <button type="button" id="refresh-alerts" class="button button--ghost">Refresh Alerts</button>
+                                        </div>
+                                    </div>
+                                </section>
+                            </form>
+                        </section>
+
+                        <section class="panel panel--results">
+                            <div class="panel__header panel__header--compact">
+                                <div>
+                                    <h2>Saved Alerts</h2>
+                                    <p id="alerts-summary" class="muted">View, reload, and manage your saved job alerts.</p>
+                                </div>
+                            </div>
+
+                            <div id="status-banner" class="status-banner" hidden></div>
+                            <div id="alerts-list" class="alerts-list">
+                                <div class="empty-state">No email alerts saved yet.</div>
+                            </div>
+                        </section>
+                    </section>
+                </section>
+            </section>
+        </main>
+    </div>
+
+    <script type="module" src="/app/app.js"></script>
+</body>
+</html>

@@ -26,7 +26,7 @@
   ],
   "scripts": {
     "start": "node src/main.js",
-    "start:api": "node --watch src/api/main.js",
+    "start:api": "node --watch-path=src --watch-path=api --watch-path=.env --watch-path=.env.local --watch-preserve-output src/api/main.js",
     "start:api:once": "node src/api/main.js"
   },
   "engines": {
@@ -34,6 +34,7 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@napi-rs/canvas": "^0.1.80",
     "@fastify/multipart": "^9.4.0",
     "@vercel/blob": "^2.3.2",
     "apify": "^3.4.4",
@@ -44,6 +45,6 @@
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^7.1.1",
     "nodemailer": "^8.0.4",
-    "pdf-parse": "^2.4.5"
+    "pdfjs-dist": "^5.4.296"
   }
 }

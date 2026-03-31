@@ -1,9 +1,16 @@
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import AdmZip from 'adm-zip';
-import { PDFParse } from 'pdf-parse';
 
 export const MAX_RESUME_FILE_BYTES = 5 * 1024 * 1024;
+
+let pdfJsModulePromise = null;
+let canvasModulePromise = null;
+const PDFJS_STANDARD_FONT_DATA_DIR = `${path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../node_modules/pdfjs-dist/standard_fonts/',
+)}/`;
 
 const STOP_WORDS = new Set([
     'a',
@@ -99,6 +106,96 @@ const SENIORITY_PATTERNS = [
     { level: 5, patterns: ['director', 'head', 'vice president', 'vp', 'chief'] },
 ];
 
+const SKILL_PATTERNS = {
+    'Product strategy': ['product strategy', 'product vision', 'product thinking'],
+    Roadmapping: ['roadmap', 'roadmapping', 'prioritization', 'prioritisation'],
+    'Stakeholder management': ['stakeholder management', 'stakeholder communication', 'cross functional', 'cross-functional'],
+    'User research': ['user research', 'customer research', 'user interviews'],
+    'Product analytics': ['product analytics', 'amplitude', 'mixpanel'],
+    Experimentation: ['a/b testing', 'ab testing', 'experimentation'],
+    'Requirements gathering': ['requirements gathering', 'business requirements', 'prd', 'product requirements document'],
+    'Go-to-market': ['go to market', 'go-to-market', 'gtm'],
+    Agile: ['agile', 'scrum', 'kanban', 'jira', 'confluence'],
+    SQL: ['sql', 'postgresql', 'postgres', 'mysql', 'tsql', 't sql'],
+    Python: ['python', 'pandas', 'numpy', 'scikit learn', 'scikit-learn'],
+    Excel: ['excel', 'spreadsheets', 'google sheets'],
+    Tableau: ['tableau'],
+    'Power BI': ['power bi', 'powerbi'],
+    Looker: ['looker'],
+    Statistics: ['statistics', 'statistical analysis'],
+    'Machine learning': ['machine learning', 'ml models', 'predictive modeling', 'predictive modelling'],
+    ETL: ['etl', 'data pipeline', 'data pipelines'],
+    'Data modeling': ['data modeling', 'data modelling'],
+    JavaScript: ['javascript', 'java script'],
+    TypeScript: ['typescript'],
+    React: ['react', 'reactjs', 'react js'],
+    'Node.js': ['node.js', 'nodejs', 'node js'],
+    Java: ['java'],
+    Spring: ['spring', 'spring boot'],
+    'C++': ['c++'],
+    'C#/.NET': ['c#', '.net', 'dotnet', 'asp.net', 'asp net'],
+    PHP: ['php', 'laravel'],
+    Ruby: ['ruby', 'ruby on rails', 'rails'],
+    AWS: ['aws', 'amazon web services'],
+    Azure: ['azure'],
+    GCP: ['gcp', 'google cloud'],
+    Docker: ['docker', 'containers', 'containerization'],
+    Kubernetes: ['kubernetes', 'k8s'],
+    Terraform: ['terraform'],
+    'CI/CD': ['ci/cd', 'ci cd', 'continuous integration', 'continuous delivery', 'continuous deployment'],
+    'REST APIs': ['rest api', 'restful api', 'api integration', 'api design'],
+    Microservices: ['microservices', 'service oriented architecture'],
+    Figma: ['figma'],
+    'Design systems': ['design system', 'design systems'],
+    Wireframing: ['wireframe', 'wireframing', 'prototyping'],
+    SEO: ['seo', 'search engine optimization'],
+    SEM: ['sem', 'search engine marketing'],
+    'Content marketing': ['content marketing', 'content strategy'],
+    'Performance marketing': ['performance marketing', 'paid acquisition', 'paid media'],
+    CRM: ['crm', 'salesforce', 'hubspot'],
+    'Project management': ['project management', 'project planning'],
+    'Program management': ['program management'],
+    'Process improvement': ['process improvement', 'continuous improvement', 'operational excellence'],
+    Automation: ['automation', 'workflow automation', 'automated reporting'],
+    Recruiting: ['recruiting', 'talent acquisition', 'candidate sourcing'],
+    'Customer success': ['customer success', 'client success', 'account management'],
+    'Financial modeling': ['financial modeling', 'financial modelling'],
+    'FP&A': ['fp&a', 'financial planning', 'budgeting', 'forecasting'],
+};
+
+const REQUIRED_SIGNAL_PATTERNS = [
+    /\brequired\b/i,
+    /\brequirement(?:s)?\b/i,
+    /\bqualification(?:s)?\b/i,
+    /\bmust have\b/i,
+    /\bmust\b/i,
+    /\bneed to\b/i,
+    /\bexperience with\b/i,
+    /\bexperience in\b/i,
+    /\bproficien(?:t|cy)\b/i,
+    /\bexpertise\b/i,
+    /\bhands[- ]on\b/i,
+    /\bknowledge of\b/i,
+    /\bstrong understanding of\b/i,
+    /\bskilled in\b/i,
+];
+
+const PREFERRED_SIGNAL_PATTERNS = [
+    /\bpreferred\b/i,
+    /\bnice to have\b/i,
+    /\bbonus\b/i,
+    /\bplus\b/i,
+    /\bideally\b/i,
+];
+
+const RESPONSIBILITY_SIGNAL_PATTERNS = [
+    /\bresponsibilit(?:y|ies)\b/i,
+    /\byou will\b/i,
+    /\bwhat you'll do\b/i,
+    /\bresponsible for\b/i,
+    /\bday to day\b/i,
+];
+
 function httpError(statusCode, message, code = 'bad_request') {
     const error = new Error(message);
     error.statusCode = statusCode;
@@ -186,14 +283,106 @@ function extractDocxText(buffer) {
     );
 }
 
+async function ensurePdfJsNodePolyfills() {
+    if (globalThis.DOMMatrix && globalThis.ImageData && globalThis.Path2D) {
+        return;
+    }
+
+    if (!canvasModulePromise) {
+        canvasModulePromise = import('@napi-rs/canvas');
+    }
+
+    const canvas = await canvasModulePromise;
+
+    if (!globalThis.DOMMatrix && canvas.DOMMatrix) {
+        globalThis.DOMMatrix = canvas.DOMMatrix;
+    }
+
+    if (!globalThis.ImageData && canvas.ImageData) {
+        globalThis.ImageData = canvas.ImageData;
+    }
+
+    if (!globalThis.Path2D && canvas.Path2D) {
+        globalThis.Path2D = canvas.Path2D;
+    }
+}
+
+async function importPdfJsModule() {
+    if (!pdfJsModulePromise) {
+        pdfJsModulePromise = (async () => {
+            try {
+                await ensurePdfJsNodePolyfills();
+            } catch {
+                // Text extraction can still work without the rendering polyfills.
+            }
+
+            const originalWarn = console.warn;
+            console.warn = (...args) => {
+                const message = args.map((value) => `${value ?? ''}`).join(' ');
+                if (
+                    message.includes('Cannot load "@napi-rs/canvas" package')
+                    || message.includes('Cannot polyfill `DOMMatrix`')
+                    || message.includes('Cannot polyfill `ImageData`')
+                    || message.includes('Cannot polyfill `Path2D`')
+                ) {
+                    return;
+                }
+
+                originalWarn(...args);
+            };
+
+            try {
+                const [pdfJsModule, pdfWorkerModule] = await Promise.all([
+                    import('pdfjs-dist/legacy/build/pdf.mjs'),
+                    import('pdfjs-dist/legacy/build/pdf.worker.mjs'),
+                ]);
+
+                if (pdfWorkerModule?.WorkerMessageHandler) {
+                    globalThis.pdfjsWorker = {
+                        ...(globalThis.pdfjsWorker ?? {}),
+                        WorkerMessageHandler: pdfWorkerModule.WorkerMessageHandler,
+                    };
+                }
+
+                return pdfJsModule;
+            } finally {
+                console.warn = originalWarn;
+            }
+        })();
+    }
+
+    return pdfJsModulePromise;
+}
+
 async function extractPdfText(buffer) {
-    const parser = new PDFParse({ data: buffer });
+    let getDocument;
 
     try {
-        const result = await parser.getText();
-        return result.text ?? '';
+        ({ getDocument } = await importPdfJsModule());
+    } catch {
+        throw httpError(500, 'PDF resume parsing is unavailable in this deployment.', 'pdf_resume_unavailable');
+    }
+
+    const loadingTask = getDocument({
+        data: new Uint8Array(buffer),
+        standardFontDataUrl: PDFJS_STANDARD_FONT_DATA_DIR,
+    });
+
+    try {
+        const pdf = await loadingTask.promise;
+        const pageTexts = [];
+
+        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+            const page = await pdf.getPage(pageNumber);
+            const content = await page.getTextContent();
+            pageTexts.push(content.items
+                .map((item) => item.str ?? '')
+                .join(' '));
+        }
+
+        return pageTexts.join('\n');
     } finally {
-        await parser.destroy();
+        await loadingTask.destroy();
     }
 }
 
@@ -395,7 +584,13 @@ function extractPhrases(value, {
     for (let size = minSize; size <= maxSize; size += 1) {
         for (let index = 0; index <= tokens.length - size; index += 1) {
             const phraseTokens = tokens.slice(index, index + size);
-            if (phraseTokens.every((token) => LOW_SIGNAL_JOB_TOKENS.has(token))) {
+            const lowSignalCount = phraseTokens.filter((token) => LOW_SIGNAL_JOB_TOKENS.has(token)).length;
+            if (
+                phraseTokens.every((token) => LOW_SIGNAL_JOB_TOKENS.has(token))
+                || LOW_SIGNAL_JOB_TOKENS.has(phraseTokens[0])
+                || LOW_SIGNAL_JOB_TOKENS.has(phraseTokens.at(-1))
+                || lowSignalCount >= Math.ceil(phraseTokens.length / 2)
+            ) {
                 continue;
             }
 
@@ -474,6 +669,71 @@ function extractJobMinimumYears(value) {
     return minimumYears;
 }
 
+function splitScannableFragments(value) {
+    return unique(cleanText(value)
+        .split(/\n+|(?<=[.!?])\s+|;/g)
+        .map((fragment) => fragment.trim())
+        .filter((fragment) => fragment.length >= 18 && fragment.length <= 260));
+}
+
+function matchesAnyPattern(value, patterns) {
+    return patterns.some((pattern) => pattern.test(value));
+}
+
+function extractRequirementBuckets(value) {
+    const required = [];
+    const preferred = [];
+    const responsibilities = [];
+
+    for (const fragment of splitScannableFragments(value)) {
+        if (matchesAnyPattern(fragment, PREFERRED_SIGNAL_PATTERNS)) {
+            preferred.push(fragment);
+            continue;
+        }
+
+        if (matchesAnyPattern(fragment, REQUIRED_SIGNAL_PATTERNS)) {
+            required.push(fragment);
+            continue;
+        }
+
+        if (matchesAnyPattern(fragment, RESPONSIBILITY_SIGNAL_PATTERNS)) {
+            responsibilities.push(fragment);
+        }
+    }
+
+    return {
+        requiredText: required.slice(0, 18).join('\n'),
+        preferredText: preferred.slice(0, 12).join('\n'),
+        responsibilityText: responsibilities.slice(0, 12).join('\n'),
+    };
+}
+
+function addSkillWeights(map, value, { weight } = {}) {
+    const searchText = normalizeForSearch(value);
+    if (!searchText.trim()) {
+        return;
+    }
+
+    for (const [skill, patterns] of Object.entries(SKILL_PATTERNS)) {
+        if (patterns.some((pattern) => hasPhrase(searchText, pattern))) {
+            map.set(skill, (map.get(skill) ?? 0) + weight);
+        }
+    }
+}
+
+function extractCanonicalSkills(value) {
+    const searchText = normalizeForSearch(value);
+    const skills = [];
+
+    for (const [skill, patterns] of Object.entries(SKILL_PATTERNS)) {
+        if (patterns.some((pattern) => hasPhrase(searchText, pattern))) {
+            skills.push(skill);
+        }
+    }
+
+    return new Set(skills);
+}
+
 function roundMetric(value) {
     return Number(value.toFixed(2));
 }
@@ -487,13 +747,16 @@ function buildResumeProfile(resumeText) {
         maxSize: 3,
         maxCount: 1200,
     }));
+    const primaryResumeText = resumeText.slice(0, 1600);
 
     return {
         normalizedText,
         tokenSet,
         phraseSet,
+        skillSet: extractCanonicalSkills(resumeText),
         yearsExperience: extractResumeYears(resumeText),
         seniorityLevel: resolveSeniorityLevel(resumeText),
+        primaryRoleFamilies: extractRoleFamilies(primaryResumeText),
         roleFamilies: extractRoleFamilies(resumeText),
     };
 }
@@ -510,11 +773,15 @@ function buildJobProfile(job) {
     const industries = job.industries ?? '';
     const employmentType = job.employmentType ?? '';
     const descriptionText = truncateText(job.descriptionText ?? '', 6000);
+    const requirementBuckets = extractRequirementBuckets(descriptionText);
     const jobText = [title, jobFunction, seniorityLevel, industries, employmentType, descriptionText]
         .filter(Boolean)
         .join('\n');
     const keywordWeights = new Map();
     const phraseWeights = new Map();
+    const skillWeights = new Map();
+    const requiredSkillWeights = new Map();
+    const titleSkillWeights = new Map();
 
     addTokenWeights(keywordWeights, title, { weight: 5, limit: 3, ignoreTokens: LOW_SIGNAL_JOB_TOKENS });
     addTokenWeights(keywordWeights, jobFunction, { weight: 4, limit: 3, ignoreTokens: LOW_SIGNAL_JOB_TOKENS });
@@ -526,15 +793,36 @@ function buildJobProfile(job) {
     addPhraseWeights(phraseWeights, title, { weight: 5, limit: 2, minSize: 2, maxSize: 4 });
     addPhraseWeights(phraseWeights, jobFunction, { weight: 4, limit: 2, minSize: 2, maxSize: 3 });
     addPhraseWeights(phraseWeights, industries, { weight: 2, limit: 2, minSize: 2, maxSize: 3 });
+    addPhraseWeights(phraseWeights, requirementBuckets.requiredText, { weight: 4.4, limit: 2, minSize: 2, maxSize: 4 });
+    addPhraseWeights(phraseWeights, requirementBuckets.preferredText, { weight: 2.4, limit: 1, minSize: 2, maxSize: 4 });
+
+    addSkillWeights(titleSkillWeights, title, { weight: 5.5 });
+    addSkillWeights(titleSkillWeights, jobFunction, { weight: 4 });
+
+    addSkillWeights(requiredSkillWeights, title, { weight: 5 });
+    addSkillWeights(requiredSkillWeights, jobFunction, { weight: 4 });
+    addSkillWeights(requiredSkillWeights, requirementBuckets.requiredText, { weight: 4.4 });
+    addSkillWeights(requiredSkillWeights, requirementBuckets.responsibilityText, { weight: 2.2 });
+
+    addSkillWeights(skillWeights, title, { weight: 5 });
+    addSkillWeights(skillWeights, jobFunction, { weight: 4 });
+    addSkillWeights(skillWeights, industries, { weight: 2 });
+    addSkillWeights(skillWeights, requirementBuckets.requiredText, { weight: 4.2 });
+    addSkillWeights(skillWeights, requirementBuckets.preferredText, { weight: 2.6 });
+    addSkillWeights(skillWeights, descriptionText, { weight: 1.6 });
 
     return {
         normalizedText: normalizeForSearch(jobText),
         titleTokens: unique(tokenize(title)),
+        primaryRoleFamilies: extractRoleFamilies([title, jobFunction].filter(Boolean).join('\n')),
         roleFamilies: extractRoleFamilies(jobText),
         seniorityLevel: resolveSeniorityLevel([seniorityLevel, title].filter(Boolean).join(' ')),
         minimumYears: extractJobMinimumYears(jobText),
         keywordWeights: buildSortedWeights(keywordWeights),
         phraseWeights: buildSortedWeights(phraseWeights),
+        titleSkillWeights: buildSortedWeights(titleSkillWeights),
+        requiredSkillWeights: buildSortedWeights(requiredSkillWeights),
+        skillWeights: buildSortedWeights(skillWeights),
     };
 }
 
@@ -548,6 +836,10 @@ function computeWeightedCoverage(entries, matcher, limit) {
     const matched = selectedEntries.reduce((sum, [value, weight]) => sum + (matcher(value) ? weight : 0), 0);
 
     return total === 0 ? 0 : matched / total;
+}
+
+function computeWeightedCoverageOrFallback(entries, matcher, limit, fallbackValue) {
+    return entries.length === 0 ? fallbackValue : computeWeightedCoverage(entries, matcher, limit);
 }
 
 function collectMatchedValues(entries, matcher, limit) {
@@ -564,18 +856,27 @@ function collectMissingValues(entries, matcher, limit) {
         .map(([value]) => value);
 }
 
-function computeRoleFamilyAlignment(jobFamilies, resumeFamilies) {
-    if (jobFamilies.size === 0) {
+function computeRoleFamilyAlignment(jobPrimaryFamilies, jobFamilies, resumePrimaryFamilies, resumeFamilies) {
+    const targetFamilies = jobPrimaryFamilies.size > 0 ? jobPrimaryFamilies : jobFamilies;
+    const strongestResumeFamilies = resumePrimaryFamilies.size > 0 ? resumePrimaryFamilies : resumeFamilies;
+
+    if (targetFamilies.size === 0) {
         return 0.65;
     }
 
-    if (resumeFamilies.size === 0) {
+    if (strongestResumeFamilies.size === 0 && resumeFamilies.size === 0) {
         return 0.3;
     }
 
-    for (const family of jobFamilies) {
-        if (resumeFamilies.has(family)) {
+    for (const family of targetFamilies) {
+        if (strongestResumeFamilies.has(family)) {
             return 1;
+        }
+    }
+
+    for (const family of targetFamilies) {
+        if (resumeFamilies.has(family)) {
+            return 0.55;
         }
     }
 
@@ -678,6 +979,8 @@ function scoreResumeProfileAgainstJob(job, resumeProfile) {
             breakdown: {
                 titleAlignment: 0,
                 roleFamilyAlignment: 0,
+                requiredSkillCoverage: 0,
+                skillCoverage: 0,
                 phraseCoverage: 0,
                 keywordCoverage: 0,
                 seniorityAlignment: 0,
@@ -688,7 +991,7 @@ function scoreResumeProfileAgainstJob(job, resumeProfile) {
     }
 
     const jobProfile = buildJobProfile(job);
-    const titleAlignment = Math.max(
+    const baseTitleAlignment = Math.max(
         listOverlap(jobProfile.titleTokens, resumeProfile.tokenSet),
         computeWeightedCoverage(
             jobProfile.phraseWeights,
@@ -696,7 +999,19 @@ function scoreResumeProfileAgainstJob(job, resumeProfile) {
             4,
         ),
     );
-    const roleFamilyAlignment = computeRoleFamilyAlignment(jobProfile.roleFamilies, resumeProfile.roleFamilies);
+    const titleSkillAlignment = computeWeightedCoverageOrFallback(
+        jobProfile.titleSkillWeights,
+        (skill) => resumeProfile.skillSet.has(skill),
+        6,
+        0,
+    );
+    const titleAlignment = Math.max(baseTitleAlignment, titleSkillAlignment);
+    const roleFamilyAlignment = computeRoleFamilyAlignment(
+        jobProfile.primaryRoleFamilies,
+        jobProfile.roleFamilies,
+        resumeProfile.primaryRoleFamilies,
+        resumeProfile.roleFamilies,
+    );
     const phraseCoverage = computeWeightedCoverage(
         jobProfile.phraseWeights,
         (phrase) => phraseMatchesResume(phrase, resumeProfile),
@@ -707,47 +1022,93 @@ function scoreResumeProfileAgainstJob(job, resumeProfile) {
         (token) => resumeProfile.tokenSet.has(token),
         16,
     );
+    const requiredSkillCoverage = computeWeightedCoverageOrFallback(
+        jobProfile.requiredSkillWeights,
+        (skill) => resumeProfile.skillSet.has(skill),
+        12,
+        Math.max(titleAlignment, phraseCoverage, keywordCoverage, 0.64),
+    );
+    const skillCoverage = computeWeightedCoverageOrFallback(
+        jobProfile.skillWeights,
+        (skill) => resumeProfile.skillSet.has(skill),
+        16,
+        Math.max(phraseCoverage, keywordCoverage, 0.58),
+    );
     const seniorityAlignment = computeSeniorityAlignment(jobProfile.seniorityLevel, resumeProfile.seniorityLevel);
     const experienceAlignment = computeExperienceAlignment(jobProfile.minimumYears, resumeProfile.yearsExperience);
-
-    let normalizedScore = (
-        (titleAlignment * 0.28)
-        + (roleFamilyAlignment * 0.18)
-        + (phraseCoverage * 0.18)
-        + (keywordCoverage * 0.21)
-        + (seniorityAlignment * 0.08)
-        + (experienceAlignment * 0.07)
+    const matchedSkills = collectMatchedValues(
+        jobProfile.requiredSkillWeights.length > 0 ? jobProfile.requiredSkillWeights : jobProfile.skillWeights,
+        (skill) => resumeProfile.skillSet.has(skill),
+        8,
+    );
+    const missingSkills = collectMissingValues(
+        jobProfile.requiredSkillWeights.length > 0 ? jobProfile.requiredSkillWeights : jobProfile.skillWeights,
+        (skill) => resumeProfile.skillSet.has(skill),
+        8,
     );
 
-    if (roleFamilyAlignment === 0 && titleAlignment < 0.4) {
-        normalizedScore -= 0.22;
+    let normalizedScore = (
+        (titleAlignment * 0.24)
+        + (roleFamilyAlignment * 0.14)
+        + (requiredSkillCoverage * 0.18)
+        + (skillCoverage * 0.14)
+        + (phraseCoverage * 0.12)
+        + (keywordCoverage * 0.10)
+        + (seniorityAlignment * 0.04)
+        + (experienceAlignment * 0.04)
+    );
+
+    if (roleFamilyAlignment === 0 && resumeProfile.roleFamilies.size > 0) {
+        normalizedScore -= 0.18;
     }
 
-    if (titleAlignment < 0.25 && keywordCoverage < 0.25) {
+    if (titleAlignment < 0.28 && requiredSkillCoverage < 0.35 && skillCoverage < 0.35) {
         normalizedScore -= 0.12;
     }
 
-    if (jobProfile.minimumYears && resumeProfile.yearsExperience && resumeProfile.yearsExperience + 3 < jobProfile.minimumYears) {
+    if (jobProfile.requiredSkillWeights.length >= 2 && requiredSkillCoverage < 0.35) {
+        normalizedScore -= 0.18;
+    }
+
+    if (jobProfile.requiredSkillWeights.length >= 4 && missingSkills.length >= 3) {
         normalizedScore -= 0.08;
     }
 
-    if (titleAlignment > 0.85 && phraseCoverage > 0.55) {
-        normalizedScore += 0.06;
+    if (jobProfile.minimumYears && resumeProfile.yearsExperience && resumeProfile.yearsExperience + 2 < jobProfile.minimumYears) {
+        normalizedScore -= 0.1;
+    }
+
+    if (titleAlignment > 0.85 && requiredSkillCoverage > 0.6) {
+        normalizedScore += 0.08;
+    }
+
+    if (titleAlignment > 0.6 && roleFamilyAlignment > 0.9 && requiredSkillCoverage > 0.8) {
+        normalizedScore += 0.05;
+    }
+
+    if (skillCoverage > 0.75 && phraseCoverage > 0.55) {
+        normalizedScore += 0.05;
     }
 
     normalizedScore = Math.max(0, Math.min(1, normalizedScore));
 
     const score = Math.max(1, Math.min(10, Math.round(1 + (normalizedScore * 9))));
-    const matchedKeywords = collectMatchedValues(
-        jobProfile.keywordWeights,
-        (token) => resumeProfile.tokenSet.has(token),
-        10,
-    );
-    const missingKeywords = collectMissingValues(
-        jobProfile.keywordWeights,
-        (token) => resumeProfile.tokenSet.has(token),
-        10,
-    );
+    const matchedKeywords = unique([
+        ...matchedSkills,
+        ...collectMatchedValues(
+            jobProfile.keywordWeights,
+            (token) => resumeProfile.tokenSet.has(token),
+            8,
+        ),
+    ]).slice(0, 10);
+    const missingKeywords = unique([
+        ...missingSkills,
+        ...collectMissingValues(
+            jobProfile.keywordWeights,
+            (token) => resumeProfile.tokenSet.has(token),
+            8,
+        ),
+    ]).slice(0, 10);
     const matchedPhrases = collectMatchedValues(
         jobProfile.phraseWeights,
         (phrase) => phraseMatchesResume(phrase, resumeProfile),
@@ -768,6 +1129,8 @@ function scoreResumeProfileAgainstJob(job, resumeProfile) {
         breakdown: {
             titleAlignment: roundMetric(titleAlignment),
             roleFamilyAlignment: roundMetric(roleFamilyAlignment),
+            requiredSkillCoverage: roundMetric(requiredSkillCoverage),
+            skillCoverage: roundMetric(skillCoverage),
             phraseCoverage: roundMetric(phraseCoverage),
             keywordCoverage: roundMetric(keywordCoverage),
             seniorityAlignment: roundMetric(seniorityAlignment),

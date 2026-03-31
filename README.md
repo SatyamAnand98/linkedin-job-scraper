@@ -54,7 +54,11 @@ npm run start:api
 
 `npm run start:api` now runs the API in watch mode and restarts it when source files change. Use `npm run start:api:once` if you want a single non-watching process.
 
-Open `http://127.0.0.1:3000/` or your configured `PORT` to use the built-in frontend. It gives you a form for search filters, page-based navigation, resume scoring, direct apply links, local applied-job tracking, and email delivery controls for instant sends or cron-based alerts.
+Open `http://127.0.0.1:3000/` or your configured `PORT` to use the built-in frontend. The UI is split into dedicated pages:
+
+- `/app/account` for email OTP signup and API key setup
+- `/app/search` for live search, pagination, resume scoring, and applied-job tracking
+- `/app/alerts` for instant email sends, cron-based alerts, and saved alert monitoring
 
 Email delivery uses SMTP from `.env`:
 
@@ -67,7 +71,11 @@ MongoDB-backed storage is now the primary persistence path for runs, alerts, use
 - `MONGO_URI`
 - optional: `LINKEDIN_JOBS_STORAGE_PROVIDER=mongo`
 - optional: `LINKEDIN_JOBS_MONGO_DATABASE_NAME` default `linkedInJobs`
-- optional: `LINKEDIN_JOBS_MONGO_COLLECTION_NAME` default `linkedInJobs`
+- optional: `LINKEDIN_JOBS_MONGO_COLLECTION_PREFIX` default `linkedInJobs`
+- optional: `LINKEDIN_JOBS_MONGO_RUNS_COLLECTION` default `linkedInJobs_runs`
+- optional: `LINKEDIN_JOBS_MONGO_ALERTS_COLLECTION` default `linkedInJobs_alerts`
+- optional: `LINKEDIN_JOBS_MONGO_USERS_COLLECTION` default `linkedInJobs_users`
+- optional: `LINKEDIN_JOBS_MONGO_OTPS_COLLECTION` default `linkedInJobs_otps`
 - optional for file fallback only: `LINKEDIN_JOBS_RUNS_DIR` and `LINKEDIN_JOBS_ALERTS_DIR`
 - optional for Vercel Blob fallback only: `BLOB_READ_WRITE_TOKEN`, `LINKEDIN_JOBS_STORAGE_PROVIDER=vercel-blob`, and `LINKEDIN_JOBS_BLOB_PREFIX`
 - optional for scheduled alert processing: `EMAIL_ALERT_POLL_INTERVAL_MS` and `CRON_SECRET`
@@ -226,15 +234,20 @@ For a durable backend on Vercel with MongoDB:
 - set `MONGO_URI`
 - set `LINKEDIN_JOBS_STORAGE_PROVIDER=mongo`
 - optional: set `LINKEDIN_JOBS_MONGO_DATABASE_NAME=linkedInJobs`
-- optional: set `LINKEDIN_JOBS_MONGO_COLLECTION_NAME=linkedInJobs`
+- optional: set `LINKEDIN_JOBS_MONGO_COLLECTION_PREFIX=linkedInJobs`
+- optional: set `LINKEDIN_JOBS_MONGO_RUNS_COLLECTION=linkedInJobs_runs`
+- optional: set `LINKEDIN_JOBS_MONGO_ALERTS_COLLECTION=linkedInJobs_alerts`
+- optional: set `LINKEDIN_JOBS_MONGO_USERS_COLLECTION=linkedInJobs_users`
+- optional: set `LINKEDIN_JOBS_MONGO_OTPS_COLLECTION=linkedInJobs_otps`
 - set `SMTP_EMAIL` and `SMTP_PASSWORD`
 - optional: set `LINKEDIN_JOBS_OTP_SECRET`
 - set `CRON_SECRET` if you want Vercel Cron to trigger alert processing securely
 
 State on Vercel:
 
-- When `MONGO_URI` is present, the app defaults to Mongo storage and keeps runs, alerts, users, and OTP challenges in one collection.
-- The default collection name is `linkedInJobs`.
+- When `MONGO_URI` is present, the app defaults to Mongo storage and keeps runs, alerts, users, and OTP challenges in separate collections.
+- The default collection set is `linkedInJobs_runs`, `linkedInJobs_alerts`, `linkedInJobs_users`, and `linkedInJobs_otps`.
+- If you previously stored everything in one legacy collection such as `linkedInJobs`, the app migrates those documents forward into the split collections on startup.
 - If you override storage back to file on Vercel, persistence is ephemeral.
 
 Alert scheduling on Vercel:
@@ -242,7 +255,8 @@ Alert scheduling on Vercel:
 - The in-process scheduler is disabled on Vercel by default.
 - Trigger [GET /v1/jobs/alerts/process](/Users/apple/Downloads/temp-test/apify/README.md#L64) from Vercel Cron or another scheduler.
 - If `CRON_SECRET` is set, call that endpoint with `Authorization: Bearer <CRON_SECRET>`.
-- For sub-daily alert schedules, use a plan that supports the cron frequency you need and run the processor often enough, typically every minute.
+- The repo includes a `vercel.json` cron definition for `0 9 * * *`, which is compatible with Vercel Hobby deployments.
+- On Vercel Hobby, sub-daily alert schedules still need an external scheduler that calls `/v1/jobs/alerts/process`; on higher plans you can increase the cron frequency.
 
 Example `vercel.json` cron entry:
 
@@ -251,13 +265,13 @@ Example `vercel.json` cron entry:
   "crons": [
     {
       "path": "/v1/jobs/alerts/process",
-      "schedule": "* * * * *"
+      "schedule": "0 9 * * *"
     }
   ]
 }
 ```
 
-That example is suitable for plans that support minute-level Vercel Cron. If your plan only supports less frequent cron jobs, use the highest frequency available.
+That example is suitable for Vercel Hobby. If your plan supports higher-frequency cron jobs, increase the schedule accordingly.
 
 ## Package Usage
 

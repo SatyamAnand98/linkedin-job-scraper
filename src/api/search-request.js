@@ -17,6 +17,7 @@ const JSON_FIELDS = new Set([
     'input',
     'proxy',
     'resumeMatchScoreRange',
+    'cronExpressions',
 ]);
 
 function parseJsonField(fieldName, rawValue) {

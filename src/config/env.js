@@ -58,6 +58,25 @@ function parseBoolean(value, fallback) {
     return fallback;
 }
 
+function buildMongoCollectionConfig(env, mongoUri) {
+    const collectionPrefix = env.LINKEDIN_JOBS_MONGO_COLLECTION_PREFIX
+        ?? env.LINKEDIN_JOBS_MONGO_COLLECTION_NAME
+        ?? 'linkedInJobs';
+
+    return {
+        uri: mongoUri,
+        databaseName: env.LINKEDIN_JOBS_MONGO_DATABASE_NAME ?? 'linkedInJobs',
+        collectionPrefix,
+        legacyCollectionName: env.LINKEDIN_JOBS_MONGO_COLLECTION_NAME ?? collectionPrefix,
+        collections: {
+            runs: env.LINKEDIN_JOBS_MONGO_RUNS_COLLECTION ?? `${collectionPrefix}_runs`,
+            alerts: env.LINKEDIN_JOBS_MONGO_ALERTS_COLLECTION ?? `${collectionPrefix}_alerts`,
+            users: env.LINKEDIN_JOBS_MONGO_USERS_COLLECTION ?? `${collectionPrefix}_users`,
+            otps: env.LINKEDIN_JOBS_MONGO_OTPS_COLLECTION ?? `${collectionPrefix}_otps`,
+        },
+    };
+}
+
 function withDefaultDevIdentities(identities) {
     const mergedIdentities = [...identities];
 
@@ -115,11 +134,7 @@ export function loadConfig(env = process.env) {
             runsDir: path.resolve(env.LINKEDIN_JOBS_RUNS_DIR ?? './storage/api-runs'),
             alertsDir: path.resolve(env.LINKEDIN_JOBS_ALERTS_DIR ?? './storage/job-alerts'),
             blobPrefix: env.LINKEDIN_JOBS_BLOB_PREFIX ?? 'linkedin-jobs',
-            mongo: {
-                uri: mongoUri,
-                databaseName: env.LINKEDIN_JOBS_MONGO_DATABASE_NAME ?? 'linkedInJobs',
-                collectionName: env.LINKEDIN_JOBS_MONGO_COLLECTION_NAME ?? 'linkedInJobs',
-            },
+            mongo: buildMongoCollectionConfig(env, mongoUri),
         },
         email: {
             from: env.SMTP_FROM ?? env.SMTP_EMAIL ?? null,

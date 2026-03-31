@@ -19,6 +19,7 @@ import {
     MongoOtpRepository,
     MongoRunRepository,
     MongoUserRepository,
+    migrateLegacyMongoStorage,
 } from '../storage/mongo-repositories.js';
 import { parseJobsSearchRequest } from './search-request.js';
 
@@ -55,6 +56,29 @@ function createServiceLogger() {
 
 const frontendAssetCache = new Map();
 
+function createDevReloadScript(reloadToken) {
+    return `
+<script>
+(() => {
+  const currentToken = ${JSON.stringify(reloadToken)};
+  const poll = async () => {
+    try {
+      const response = await fetch('/app/dev/reload', { cache: 'no-store' });
+      if (response.ok) {
+        const payload = await response.json();
+        if (payload && payload.reloadToken && payload.reloadToken !== currentToken) {
+          window.location.reload();
+          return;
+        }
+      }
+    } catch {}
+    window.setTimeout(poll, 1000);
+  };
+  window.setTimeout(poll, 1000);
+})();
+</script>`;
+}
+
 async function loadFrontendAsset(fileName) {
     if (!frontendAssetCache.has(fileName)) {
         frontendAssetCache.set(fileName, readFile(new URL(`../frontend/${fileName}`, import.meta.url), 'utf8'));
@@ -63,51 +87,62 @@ async function loadFrontendAsset(fileName) {
     return frontendAssetCache.get(fileName);
 }
 
-export async function createApiServer(options = {}) {
+export function createApiServer(options = {}) {
     const config = options.config ?? loadConfig();
     const logger = options.logger ?? createNoopLogger();
     const serviceLogger = options.serviceLogger ?? createServiceLogger();
+    const isDevFrontendMode = !config.platform.isVercel && config.nodeEnv !== 'production';
+    const reloadToken = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
     const emailService = options.emailService ?? createEmailService(config.email, {
         logger: serviceLogger,
     });
     const useMongoStorage = config.storage.provider === 'mongo';
     const useBlobStorage = config.storage.provider === 'vercel-blob';
-    const mongoProvider = useMongoStorage
-        ? new MongoCollectionProvider(config.storage.mongo)
+    const mongoProviders = useMongoStorage
+        ? {
+            runs: new MongoCollectionProvider({
+                uri: config.storage.mongo.uri,
+                databaseName: config.storage.mongo.databaseName,
+                collectionName: config.storage.mongo.collections.runs,
+            }),
+            alerts: new MongoCollectionProvider({
+                uri: config.storage.mongo.uri,
+                databaseName: config.storage.mongo.databaseName,
+                collectionName: config.storage.mongo.collections.alerts,
+            }),
+            users: new MongoCollectionProvider({
+                uri: config.storage.mongo.uri,
+                databaseName: config.storage.mongo.databaseName,
+                collectionName: config.storage.mongo.collections.users,
+            }),
+            otps: new MongoCollectionProvider({
+                uri: config.storage.mongo.uri,
+                databaseName: config.storage.mongo.databaseName,
+                collectionName: config.storage.mongo.collections.otps,
+            }),
+        }
         : null;
     const runRepository = options.runRepository ?? (useMongoStorage
-        ? new MongoRunRepository({ provider: mongoProvider })
+        ? new MongoRunRepository({ provider: mongoProviders.runs })
         : useBlobStorage
         ? new BlobRunRepository({ prefix: `${config.storage.blobPrefix}/runs` })
         : new FileRunRepository({ runsDir: config.storage.runsDir }));
     const alertRepository = options.alertRepository ?? (useMongoStorage
-        ? new MongoAlertRepository({ provider: mongoProvider })
+        ? new MongoAlertRepository({ provider: mongoProviders.alerts })
         : useBlobStorage
         ? new BlobAlertRepository({ prefix: `${config.storage.blobPrefix}/alerts` })
         : new FileAlertRepository({ alertsDir: config.storage.alertsDir }));
     const userRepository = options.userRepository ?? (useMongoStorage
-        ? new MongoUserRepository({ provider: mongoProvider })
+        ? new MongoUserRepository({ provider: mongoProviders.users })
         : null);
     const otpRepository = options.otpRepository ?? (useMongoStorage
-        ? new MongoOtpRepository({ provider: mongoProvider })
+        ? new MongoOtpRepository({ provider: mongoProviders.otps })
         : null);
     const authService = options.authService ?? createAuthService(config.auth, {
         userRepository,
         otpRepository,
         emailService,
     });
-
-    await runRepository.init();
-    await alertRepository.init();
-    await userRepository?.init?.();
-    await otpRepository?.init?.();
-
-    if (config.platform.isVercel && !useBlobStorage && !useMongoStorage) {
-        serviceLogger.warn('Vercel deployment is using file-backed storage. Runs and alerts will not persist across instances.', {
-            storageProvider: config.storage.provider,
-        });
-    }
-
     const jobsService = options.jobsService ?? createJobsService({
         logger: serviceLogger,
         runRepository,
@@ -124,7 +159,79 @@ export async function createApiServer(options = {}) {
         logger: false,
     });
 
-    await server.register(multipart, {
+    async function sendFrontendPage(reply, fileName) {
+        let body = await loadFrontendAsset(fileName);
+        if (isDevFrontendMode && body.includes('</body>')) {
+            body = body.replace('</body>', `${createDevReloadScript(reloadToken)}</body>`);
+        }
+
+        reply
+            .header('cache-control', isDevFrontendMode ? 'no-store' : 'public, max-age=0, must-revalidate')
+            .type('text/html; charset=utf-8')
+            .send(body);
+    }
+
+    async function sendFrontendAsset(reply, fileName, contentType) {
+        reply
+            .header('cache-control', isDevFrontendMode ? 'no-store' : 'public, max-age=0, must-revalidate')
+            .type(contentType)
+            .send(await loadFrontendAsset(fileName));
+    }
+
+    let initializationPromise = null;
+    let legacyMigrationPromise = null;
+    let schedulerStarted = false;
+
+    async function ensureInitialized() {
+        if (!initializationPromise) {
+            initializationPromise = (async () => {
+                if (useMongoStorage && !legacyMigrationPromise) {
+                    legacyMigrationPromise = migrateLegacyMongoStorage({
+                        ...config.storage.mongo,
+                        collectionNames: config.storage.mongo.collections,
+                        logger: serviceLogger,
+                    }).catch((error) => {
+                        legacyMigrationPromise = null;
+                        throw error;
+                    });
+                }
+
+                await legacyMigrationPromise;
+                await runRepository.init();
+                await alertRepository.init();
+                await userRepository?.init?.();
+                await otpRepository?.init?.();
+
+                if (config.platform.isVercel && !useBlobStorage && !useMongoStorage) {
+                    serviceLogger.warn('Vercel deployment is using file-backed storage. Runs and alerts will not persist across instances.', {
+                        storageProvider: config.storage.provider,
+                    });
+                }
+
+                if (config.platform.isVercel && !config.alerts.useInProcessScheduler && !config.alerts.cronSecret) {
+                    serviceLogger.warn('Vercel deployment has no CRON_SECRET. Saved alerts will persist but will not run automatically until Vercel Cron is configured.', {
+                        schedulerMode: 'external',
+                    });
+                }
+
+                if (config.alerts.useInProcessScheduler && !schedulerStarted) {
+                    jobsDeliveryService.startScheduler?.();
+                    schedulerStarted = true;
+                }
+            })().catch((error) => {
+                initializationPromise = null;
+                serviceLogger.error('API dependency initialization failed.', {
+                    error: error.message,
+                    storageProvider: config.storage.provider,
+                });
+                throw error;
+            });
+        }
+
+        await initializationPromise;
+    }
+
+    server.register(multipart, {
         limits: {
             files: 1,
             fileSize: MAX_RESUME_FILE_BYTES,
@@ -132,6 +239,8 @@ export async function createApiServer(options = {}) {
     });
 
     async function authenticate(request) {
+        await ensureInitialized();
+
         if (!request.identity) {
             request.identity = await authService.authenticateRequest(request.headers);
         }
@@ -177,31 +286,85 @@ export async function createApiServer(options = {}) {
     server.get('/health', async () => ({
         status: 'ok',
         service: 'linkedin-jobs-scraper-api',
+        storageProvider: config.storage.provider,
+        schedulerMode: config.alerts.useInProcessScheduler ? 'in_process' : 'external',
+        schedulerConfigured: config.alerts.useInProcessScheduler || Boolean(config.alerts.cronSecret),
     }));
 
     server.get('/', async (request, reply) => {
-        reply.type('text/html; charset=utf-8').send(await loadFrontendAsset('index.html'));
+        await sendFrontendPage(reply, 'index.html');
+    });
+
+    server.get('/terms', async (request, reply) => {
+        await sendFrontendPage(reply, 'terms.html');
+    });
+
+    server.get('/contact', async (request, reply) => {
+        await sendFrontendPage(reply, 'contact.html');
     });
 
     server.get('/app/app.js', async (request, reply) => {
-        reply.type('text/javascript; charset=utf-8').send(await loadFrontendAsset('app.js'));
+        await sendFrontendAsset(reply, 'app.js', 'text/javascript; charset=utf-8');
     });
 
     server.get('/app/styles.css', async (request, reply) => {
-        reply.type('text/css; charset=utf-8').send(await loadFrontendAsset('styles.css'));
+        await sendFrontendAsset(reply, 'styles.css', 'text/css; charset=utf-8');
+    });
+
+    server.get('/app/dev/reload', async () => ({
+        reloadToken,
+    }));
+
+    server.get('/app', async (request, reply) => {
+        reply.redirect('/login');
+    });
+
+    server.get('/login', async (request, reply) => {
+        await sendFrontendPage(reply, 'login.html');
+    });
+
+    server.get('/app/login', async (request, reply) => {
+        reply.redirect('/login');
+    });
+
+    server.get('/signup', async (request, reply) => {
+        await sendFrontendPage(reply, 'signup.html');
+    });
+
+    server.get('/app/signup', async (request, reply) => {
+        reply.redirect('/signup');
+    });
+
+    server.get('/app/search', async (request, reply) => {
+        await sendFrontendPage(reply, 'search.html');
+    });
+
+    server.get('/app/alerts', async (request, reply) => {
+        await sendFrontendPage(reply, 'alerts.html');
+    });
+
+    server.get('/app/account', async (request, reply) => {
+        await sendFrontendPage(reply, 'account.html');
     });
 
     server.addHook('onClose', async () => {
-        jobsDeliveryService.stopScheduler?.();
-        await mongoProvider?.close?.();
+        if (schedulerStarted) {
+            jobsDeliveryService.stopScheduler?.();
+        }
+
+        if (useMongoStorage) {
+            await Promise.all(Object.values(mongoProviders).map((provider) => provider.close()));
+        }
     });
 
     if (config.alerts.useInProcessScheduler) {
-        jobsDeliveryService.startScheduler?.();
+        void ensureInitialized().catch(() => {});
     }
 
     server.post('/v1/auth/tokens', async (request, reply) => {
         try {
+            await ensureInitialized();
+
             const { clientId, clientSecret } = request.body ?? {};
             if (!clientId || !clientSecret) {
                 throw Object.assign(new Error('Both "clientId" and "clientSecret" are required.'), {
@@ -218,6 +381,8 @@ export async function createApiServer(options = {}) {
 
     server.post('/v1/auth/email/request-otp', async (request, reply) => {
         try {
+            await ensureInitialized();
+
             const result = await authService.requestEmailOtp({
                 email: request.body?.email,
                 name: request.body?.name,
@@ -230,6 +395,8 @@ export async function createApiServer(options = {}) {
 
     server.post('/v1/auth/email/verify-otp', async (request, reply) => {
         try {
+            await ensureInitialized();
+
             const result = await authService.verifyEmailOtp({
                 email: request.body?.email,
                 otp: request.body?.otp,
@@ -247,6 +414,7 @@ export async function createApiServer(options = {}) {
 
     server.post('/v1/jobs/search', { preHandler: requirePermission('jobs:run') }, async (request, reply) => {
         try {
+            await ensureInitialized();
             const result = await jobsService.search(await parseJobsSearchRequest(request));
             const payload = {
                 count: result.items.length,
@@ -275,6 +443,7 @@ export async function createApiServer(options = {}) {
 
     server.post('/v1/jobs/deliveries/send', { preHandler: requirePermission('jobs:run') }, async (request, reply) => {
         try {
+            await ensureInitialized();
             const result = await jobsDeliveryService.sendInstant(await parseJobsSearchRequest(request));
             reply.send(result);
         } catch (error) {
@@ -288,10 +457,15 @@ export async function createApiServer(options = {}) {
 
     server.post('/v1/jobs/alerts', { preHandler: requirePermission('jobs:run') }, async (request, reply) => {
         try {
-            const alert = await jobsDeliveryService.createAlert(await parseJobsSearchRequest(request), {
+            await ensureInitialized();
+            const alerts = await jobsDeliveryService.createAlerts(await parseJobsSearchRequest(request), {
                 identity: request.identity,
             });
-            reply.code(201).send({ alert });
+            reply.code(201).send({
+                count: alerts.length,
+                alert: alerts[0] ?? null,
+                alerts,
+            });
         } catch (error) {
             logger.error?.('Creating jobs email alert failed.', { error: error.message });
             replyWithError(reply, Object.assign(error, {
@@ -303,6 +477,7 @@ export async function createApiServer(options = {}) {
 
     server.get('/v1/jobs/alerts', { preHandler: requirePermission('jobs:run') }, async (request, reply) => {
         try {
+            await ensureInitialized();
             const alerts = await jobsDeliveryService.listAlerts({
                 identity: request.identity,
             });
@@ -320,6 +495,7 @@ export async function createApiServer(options = {}) {
 
     server.get('/v1/jobs/alerts/process', { preHandler: requireCronSecretOrPermission('jobs:run') }, async (request, reply) => {
         try {
+            await ensureInitialized();
             const result = await jobsDeliveryService.processDueAlerts();
             reply.send(result);
         } catch (error) {
@@ -332,6 +508,7 @@ export async function createApiServer(options = {}) {
 
     server.delete('/v1/jobs/alerts/:alertId', { preHandler: requirePermission('jobs:run') }, async (request, reply) => {
         try {
+            await ensureInitialized();
             await jobsDeliveryService.deleteAlert(request.params.alertId, {
                 identity: request.identity,
             });
@@ -345,6 +522,7 @@ export async function createApiServer(options = {}) {
     });
 
     server.post('/v1/jobs/runs', { preHandler: requirePermission('jobs:run') }, async (request, reply) => {
+        await ensureInitialized();
         const run = await jobsService.createRun(request.body?.input ?? request.body ?? {}, {
             identity: request.identity,
         });
@@ -363,6 +541,7 @@ export async function createApiServer(options = {}) {
     });
 
     server.get('/v1/jobs/runs/:runId', { preHandler: requirePermission('jobs:read') }, async (request, reply) => {
+        await ensureInitialized();
         const run = await jobsService.getRun(request.params.runId, {
             identity: request.identity,
         });
@@ -379,6 +558,7 @@ export async function createApiServer(options = {}) {
     });
 
     server.get('/v1/jobs/runs/:runId/items', { preHandler: requirePermission('jobs:read') }, async (request, reply) => {
+        await ensureInitialized();
         const items = await jobsService.getRunItems(request.params.runId, {
             identity: request.identity,
         });

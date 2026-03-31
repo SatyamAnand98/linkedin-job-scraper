@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ApplyDesk Cloud | Search Jobs</title>
+    <link rel="stylesheet" href="/app/styles.css">
+</head>
+<body data-page="search" data-requires-auth="true">
+    <div class="page-shell">
+        <header class="app-header">
+            <div class="topbar">
+                <a class="brand" href="/">
+                    <span class="brand__mark">AD</span>
+                    <span class="brand__text">
+                        <strong>ApplyDesk Cloud</strong>
+                        <span>Search jobs that fit your goals</span>
+                    </span>
+                </a>
+
+                <nav class="topbar__nav" aria-label="Primary">
+                    <a href="/">Home</a>
+                    <a href="/app/account">Dashboard</a>
+                    <a href="/app/search" aria-current="page">Search</a>
+                    <a href="/app/alerts">Alerts</a>
+                </nav>
+
+                <div class="topbar__actions">
+                    <span class="session-user" data-session-email>Search opens after login</span>
+                    <a class="button button--ghost" data-guest-only href="/login">Log In</a>
+                    <a class="button button--primary" data-guest-only href="/signup">Sign Up</a>
+                    <a class="button button--primary" data-auth-only hidden href="/app/alerts">Open Alerts</a>
+                    <button type="button" class="button button--ghost" data-signout hidden>Log Out</button>
+                </div>
+            </div>
+
+        </header>
+
+        <main class="site-main">
+            <section class="page-hero">
+                <div class="page-hero__copy">
+                    <p class="section-heading__eyebrow">Job discovery</p>
+                    <h1>Find jobs worth your time from one focused screen.</h1>
+                    <p>
+                        Search by title, location, company, and preferences, then use your resume to focus on roles
+                        that are more likely to be a strong fit for you.
+                    </p>
+                </div>
+
+                <aside class="page-hero__panel">
+                    <article class="dashboard-card">
+                        <span class="dashboard-card__label">Signed in as</span>
+                        <strong class="dashboard-card__value" data-session-name>ApplyDesk user</strong>
+                        <p data-session-email>Once signed in, your session stays available across all product pages.</p>
+                    </article>
+                </aside>
+            </section>
+
+            <section data-protected-content>
+                <section class="workspace-shell">
+                    <div class="workspace-header">
+                        <div>
+                            <p class="section-heading__eyebrow">Search</p>
+                            <h2>Search jobs and review the strongest matches.</h2>
+                            <p>Use this page to narrow the role list, compare jobs with your resume, and keep track of what you have already reviewed.</p>
+                        </div>
+
+                        <div class="workspace-badges">
+                            <span>Resume scoring</span>
+                            <span>Pagination</span>
+                            <span>Applied state</span>
+                            <span>Saved preferences</span>
+                        </div>
+                    </div>
+
+                    <section class="layout">
+                        <section class="panel panel--form">
+                            <div class="panel__header">
+                                <div>
+                                    <h2>Search Filters</h2>
+                                    <p class="muted">Choose what kind of role you want and how closely it should match your resume.</p>
+                                </div>
+                                <button type="button" id="reset-filters" class="button button--ghost">Reset</button>
+                            </div>
+
+                            <form id="search-form" class="form-grid">
+                                <label class="field field--full">
+                                    <span>Job title</span>
+                                    <input name="title" type="text" placeholder="Product Manager">
+                                </label>
+
+                                <label class="field">
+                                    <span>Location</span>
+                                    <input name="location" type="text" placeholder="Bengaluru">
+                                </label>
+
+                                <label class="field">
+                                    <span>Jobs per page</span>
+                                    <input name="rows" type="number" min="1" max="1000" value="10">
+                                </label>
+
+                                <label class="field">
+                                    <span>Page number</span>
+                                    <input name="pageNumber" type="number" min="1" max="1000" value="1">
+                                </label>
+
+                                <label class="field">
+                                    <span>Posted within</span>
+                                    <select name="publishedAt">
+                                        <option value="">Any time</option>
+                                        <option value="r86400">Past 24 hours</option>
+                                        <option value="r604800">Past week</option>
+                                        <option value="r2592000">Past month</option>
+                                    </select>
+                                </label>
+
+                                <label class="field">
+                                    <span>Company names</span>
+                                    <input name="companyName" type="text" placeholder="Google, Microsoft">
+                                </label>
+
+                                <label class="field">
+                                    <span>Company IDs</span>
+                                    <input name="companyId" type="text" placeholder="76987811, 1815218">
+                                </label>
+
+                                <label class="field">
+                                    <span class="field__header">
+                                        <span>Work type</span>
+                                        <button type="button" class="field__clear" data-reset-target="workType">Clear</button>
+                                    </span>
+                                    <select name="workType" multiple size="3">
+                                        <option value="1">On-site</option>
+                                        <option value="2">Remote</option>
+                                        <option value="3">Hybrid</option>
+                                    </select>
+                                </label>
+
+                                <label class="field">
+                                    <span class="field__header">
+                                        <span>Contract type</span>
+                                        <button type="button" class="field__clear" data-reset-target="contractType">Clear</button>
+                                    </span>
+                                    <select name="contractType" multiple size="6">
+                                        <option value="F">Full-time</option>
+                                        <option value="P">Part-time</option>
+                                        <option value="C">Contract</option>
+                                        <option value="T">Temporary</option>
+                                        <option value="V">Volunteer</option>
+                                        <option value="I">Internship</option>
+                                    </select>
+                                </label>
+
+                                <label class="field">
+                                    <span class="field__header">
+                                        <span>Experience level</span>
+                                        <button type="button" class="field__clear" data-reset-target="experienceLevel">Clear</button>
+                                    </span>
+                                    <select name="experienceLevel" multiple size="5">
+                                        <option value="1">Internship</option>
+                                        <option value="2">Entry level</option>
+                                        <option value="3">Associate</option>
+                                        <option value="4">Mid-Senior level</option>
+                                        <option value="5">Director</option>
+                                    </select>
+                                </label>
+
+                                <label class="field">
+                                    <span>Resume URL</span>
+                                    <input name="resumeUrl" type="url" placeholder="https://example.com/resume.pdf">
+                                </label>
+
+                                <label class="field field--full">
+                                    <span class="field__header">
+                                        <span>Resume file</span>
+                                        <button type="button" class="field__clear" data-reset-target="resumeFile">Clear</button>
+                                    </span>
+                                    <input name="resumeFile" type="file" accept=".pdf,.docx,.txt,.md,.html,.htm,.json,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+                                    <span id="resume-file-state" class="field__hint">No file selected</span>
+                                </label>
+
+                                <label class="field">
+                                    <span>Min score</span>
+                                    <input name="resumeMatchMinScore" type="number" min="1" max="10" step="0.1" placeholder="7">
+                                </label>
+
+                                <label class="field">
+                                    <span>Max score</span>
+                                    <input name="resumeMatchMaxScore" type="number" min="1" max="10" step="0.1" placeholder="10">
+                                </label>
+
+                                <label class="field">
+                                    <span>Search delay ms</span>
+                                    <input name="requestDelayMs" type="number" min="0" max="10000" value="600">
+                                </label>
+
+                                <label class="field">
+                                    <span>Detail loading</span>
+                                    <input name="detailConcurrency" type="number" min="1" max="10" value="3">
+                                </label>
+
+                                <label class="field field--toggle field--full">
+                                    <span>Hide locally applied jobs</span>
+                                    <input id="hide-applied" type="checkbox" checked>
+                                </label>
+
+                                <div class="actions field--full">
+                                    <button type="submit" id="search-button" class="button button--primary">Search Jobs</button>
+                                    <button type="button" id="previous-page" class="button button--ghost">Previous Page</button>
+                                    <button type="button" id="next-page" class="button button--ghost">Next Page</button>
+                                </div>
+                            </form>
+                        </section>
+
+                        <section class="panel panel--results">
+                            <div class="panel__header panel__header--results">
+                                <div>
+                                    <h2>Results</h2>
+                                    <p id="results-summary" class="muted">Run a search to load jobs.</p>
+                                </div>
+                                <div class="results-toolbar">
+                                    <button type="button" id="open-visible" class="button button--ghost">Open Visible Jobs</button>
+                                    <button type="button" id="clear-applied" class="button button--ghost">Clear Applied Marks</button>
+                                </div>
+                            </div>
+
+                            <div id="status-banner" class="status-banner" hidden></div>
+                            <div id="results-list" class="results-list"></div>
+                        </section>
+                    </section>
+                </section>
+            </section>
+        </main>
+    </div>
+
+    <template id="job-card-template">
+        <article class="job-card">
+            <div class="job-card__top">
+                <div>
+                    <div class="job-card__meta"></div>
+                    <h3 class="job-card__title"></h3>
+                    <div class="job-card__company"></div>
+                </div>
+                <div class="job-card__score"></div>
+            </div>
+
+            <div class="job-card__chips"></div>
+            <p class="job-card__summary"></p>
+
+            <div class="job-card__breakdown"></div>
+
+            <div class="job-card__actions">
+                <a class="button button--primary job-card__apply" target="_blank" rel="noreferrer">Open job</a>
+                <button type="button" class="button button--ghost job-card__toggle">Mark applied</button>
+            </div>
+        </article>
+    </template>
+
+    <script type="module" src="/app/app.js"></script>
+</body>
+</html>

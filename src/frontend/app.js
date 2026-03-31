@@ -1,8 +1,14 @@
 const APPLIED_JOBS_STORAGE_KEY = 'linkedin-jobs-applied-job-ids';
 const PREFERENCES_STORAGE_KEY = 'linkedin-jobs-frontend-preferences';
+const SESSION_PROFILE_STORAGE_KEY = 'linkedin-jobs-session-profile';
 
 const isBrowser = typeof document !== 'undefined';
-const form = isBrowser ? document.querySelector('#search-form') : null;
+const page = isBrowser ? document.body.dataset.page ?? '' : '';
+const authMode = isBrowser ? document.body.dataset.authMode ?? '' : '';
+const authRedirect = isBrowser ? document.body.dataset.authRedirect ?? '/app/account' : '/app/account';
+const requiresAuth = isBrowser ? document.body.dataset.requiresAuth === 'true' : false;
+const searchForm = isBrowser ? document.querySelector('#search-form') : null;
+const accountForm = isBrowser ? document.querySelector('#account-form') : null;
 const apiKeyInput = isBrowser ? document.querySelector('#api-key') : null;
 const hideAppliedInput = isBrowser ? document.querySelector('#hide-applied') : null;
 const resultsSummary = isBrowser ? document.querySelector('#results-summary') : null;
@@ -23,13 +29,18 @@ const jobCardTemplate = isBrowser ? document.querySelector('#job-card-template')
 const selectiveResetButtons = isBrowser ? [...document.querySelectorAll('[data-reset-target]')] : [];
 const resumeFileState = isBrowser ? document.querySelector('#resume-file-state') : null;
 const alertsList = isBrowser ? document.querySelector('#alerts-list') : null;
-
-const CRON_PRESET_VALUES = [
-    '0 * * * *',
-    '*/15 * * * *',
-    '0 */6 * * *',
-    '0 9 * * *',
-];
+const alertsSummary = isBrowser ? document.querySelector('#alerts-summary') : null;
+const cronPresetButtons = isBrowser ? [...document.querySelectorAll('[data-cron-value]')] : [];
+const authGate = isBrowser ? document.querySelector('[data-auth-gate]') : null;
+const protectedContent = isBrowser ? document.querySelector('[data-protected-content]') : null;
+const authOnlyNodes = isBrowser ? [...document.querySelectorAll('[data-auth-only]')] : [];
+const guestOnlyNodes = isBrowser ? [...document.querySelectorAll('[data-guest-only]')] : [];
+const signOutButtons = isBrowser ? [...document.querySelectorAll('[data-signout]')] : [];
+const sessionStateNodes = isBrowser ? [...document.querySelectorAll('[data-session-state]')] : [];
+const sessionEmailNodes = isBrowser ? [...document.querySelectorAll('[data-session-email]')] : [];
+const sessionNameNodes = isBrowser ? [...document.querySelectorAll('[data-session-name]')] : [];
+const refreshSessionButton = isBrowser ? document.querySelector('#refresh-session') : null;
+const copyApiKeyButton = isBrowser ? document.querySelector('#copy-api-key') : null;
 
 let lastResponse = null;
 let lastVisibleItems = [];
@@ -38,22 +49,92 @@ if (isBrowser) {
     bootstrap();
 }
 
+function getField(fieldName) {
+    return searchForm?.elements?.namedItem(fieldName)
+        ?? accountForm?.elements?.namedItem(fieldName)
+        ?? null;
+}
+
+function readFieldValue(fieldName, fallback = '') {
+    const field = getField(fieldName);
+    return typeof field?.value === 'string' ? field.value : fallback;
+}
+
+function readTrimmedFieldValue(fieldName) {
+    return readFieldValue(fieldName).trim();
+}
+
+function readSelectedValues(fieldName) {
+    const field = getField(fieldName);
+    if (!field?.selectedOptions) {
+        return [];
+    }
+
+    return [...field.selectedOptions].map((option) => option.value);
+}
+
+function readFileValue(fieldName) {
+    const field = getField(fieldName);
+    return field?.files?.[0] ?? null;
+}
+
+function normalizeCronLines(value) {
+    return [...new Set(`${value ?? ''}`
+        .split(/\r?\n+/g)
+        .map((line) => line.trim())
+        .filter(Boolean))];
+}
+
+function appendCronPreset(cronValue) {
+    const cronField = getField('cronExpression');
+    if (!cronField || !cronValue) {
+        return;
+    }
+
+    const lines = normalizeCronLines(cronField.value);
+    if (!lines.includes(cronValue)) {
+        lines.push(cronValue);
+    }
+
+    cronField.value = lines.join('\n');
+    persistPreferences();
+}
+
 function bootstrap() {
     hydratePreferences();
-    renderResults([]);
-    updateSummary();
+    renderSessionChrome();
 
-    form.addEventListener('submit', handleSearchSubmit);
-    nextPageButton.addEventListener('click', () => changePageNumber(1));
-    previousPageButton.addEventListener('click', () => changePageNumber(-1));
-    resetFiltersButton.addEventListener('click', handleReset);
-    requestOtpButton.addEventListener('click', handleRequestOtp);
-    verifyOtpButton.addEventListener('click', handleVerifyOtp);
-    openVisibleButton.addEventListener('click', openVisibleJobs);
-    clearAppliedButton.addEventListener('click', clearAppliedJobs);
-    sendEmailButton.addEventListener('click', handleSendEmail);
-    saveAlertButton.addEventListener('click', handleSaveAlert);
-    refreshAlertsButton.addEventListener('click', loadAlerts);
+    if (requiresAuth && !getActiveApiKey()) {
+        redirectToLogin();
+        return;
+    }
+
+    if (resultsList) {
+        renderResults([]);
+    }
+
+    if (resultsSummary) {
+        updateSummary();
+    }
+
+    if (searchForm && searchButton) {
+        searchForm.addEventListener('submit', handleSearchSubmit);
+    } else if (searchForm) {
+        searchForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+        });
+    }
+
+    nextPageButton?.addEventListener('click', () => changePageNumber(1));
+    previousPageButton?.addEventListener('click', () => changePageNumber(-1));
+    resetFiltersButton?.addEventListener('click', handleReset);
+    requestOtpButton?.addEventListener('click', handleRequestOtp);
+    verifyOtpButton?.addEventListener('click', handleVerifyOtp);
+    openVisibleButton?.addEventListener('click', openVisibleJobs);
+    clearAppliedButton?.addEventListener('click', clearAppliedJobs);
+    sendEmailButton?.addEventListener('click', handleSendEmail);
+    saveAlertButton?.addEventListener('click', handleSaveAlert);
+    refreshAlertsButton?.addEventListener('click', loadAlerts);
     selectiveResetButtons.forEach((button) => {
         button.addEventListener('click', (event) => {
             event.preventDefault();
@@ -61,20 +142,54 @@ function bootstrap() {
             resetField(button.dataset.resetTarget);
         });
     });
-    hideAppliedInput.addEventListener('change', () => {
+    cronPresetButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            appendCronPreset(button.dataset.cronValue);
+        });
+    });
+    hideAppliedInput?.addEventListener('change', () => {
         persistPreferences();
         rerenderFromLastResponse();
     });
-    apiKeyInput.addEventListener('change', persistPreferences);
-    apiKeyInput.addEventListener('blur', persistPreferences);
-    form.elements.resumeFile.addEventListener('change', updateResumeFileState);
-    form.elements.cronPreset.addEventListener('change', syncCronPresetSelection);
-    form.elements.cronExpression.addEventListener('input', syncCronPresetFromExpression);
-    updateResumeFileState();
-    syncCronPresetSelection();
-    loadAlerts().catch(() => {
-        renderAlerts([]);
+    apiKeyInput?.addEventListener('change', () => {
+        persistPreferences();
+        renderSessionChrome();
     });
+    apiKeyInput?.addEventListener('blur', async () => {
+        persistPreferences();
+        renderSessionChrome();
+        if (apiKeyInput?.value?.trim()) {
+            await refreshSessionProfile({ silent: true });
+        }
+    });
+    getField('resumeFile')?.addEventListener('change', updateResumeFileState);
+    getField('cronExpression')?.addEventListener('input', persistPreferences);
+    refreshSessionButton?.addEventListener('click', async () => {
+        try {
+            setLoadingState(true);
+            await refreshSessionProfile();
+            showStatus('Session refreshed.', 'success');
+        } catch (error) {
+            showStatus(error.message, 'error');
+        } finally {
+            setLoadingState(false);
+        }
+    });
+    copyApiKeyButton?.addEventListener('click', handleCopyApiKey);
+    signOutButtons.forEach((button) => {
+        button.addEventListener('click', handleSignOut);
+    });
+    updateResumeFileState();
+
+    if (alertsList) {
+        loadAlerts().catch(() => {
+            renderAlerts([]);
+        });
+    }
+
+    if (getActiveApiKey()) {
+        void refreshSessionProfile({ silent: true });
+    }
 }
 
 function defaultApiKeyValue() {
@@ -88,10 +203,226 @@ function defaultApiKeyValue() {
         : '';
 }
 
+function readStoredPreferences() {
+    if (!isBrowser) {
+        return {};
+    }
+
+    try {
+        const value = JSON.parse(localStorage.getItem(PREFERENCES_STORAGE_KEY) ?? '{}');
+        return value && typeof value === 'object' ? value : {};
+    } catch {
+        return {};
+    }
+}
+
+function writeStoredPreferences(preferences) {
+    if (!isBrowser) {
+        return;
+    }
+
+    localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(preferences));
+}
+
+function getNextPath() {
+    if (!isBrowser) {
+        return authRedirect;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    return params.get('next') || authRedirect;
+}
+
+function redirectToLogin() {
+    if (!isBrowser) {
+        return;
+    }
+
+    const next = `${window.location.pathname}${window.location.search}` || '/app/account';
+    const params = new URLSearchParams({ next });
+    window.location.replace(`/login?${params.toString()}`);
+}
+
+function getActiveApiKey() {
+    const storedApiKey = `${readStoredPreferences().apiKey ?? ''}`.trim();
+    return apiKeyInput?.value?.trim?.() || storedApiKey || '';
+}
+
+function setActiveApiKey(apiKey) {
+    const normalized = `${apiKey ?? ''}`.trim();
+    if (apiKeyInput) {
+        apiKeyInput.value = normalized;
+    }
+
+    writeStoredPreferences({
+        ...readStoredPreferences(),
+        apiKey: normalized,
+    });
+}
+
+function getStoredSessionProfile() {
+    if (!isBrowser) {
+        return null;
+    }
+
+    try {
+        const value = JSON.parse(localStorage.getItem(SESSION_PROFILE_STORAGE_KEY) ?? 'null');
+        return value && typeof value === 'object' ? value : null;
+    } catch {
+        return null;
+    }
+}
+
+function saveSessionProfile(profile) {
+    if (!isBrowser) {
+        return;
+    }
+
+    if (!profile || typeof profile !== 'object') {
+        localStorage.removeItem(SESSION_PROFILE_STORAGE_KEY);
+        return;
+    }
+
+    localStorage.setItem(SESSION_PROFILE_STORAGE_KEY, JSON.stringify(profile));
+}
+
+function applyAuthGateState(isAuthenticated) {
+    if (authGate) {
+        authGate.hidden = isAuthenticated;
+    }
+
+    if (protectedContent) {
+        protectedContent.hidden = !isAuthenticated;
+    }
+}
+
+function renderSessionChrome(profile = getStoredSessionProfile()) {
+    const preferences = readStoredPreferences();
+    const isAuthenticated = Boolean(getActiveApiKey());
+    const email = profile?.email
+        || readTrimmedFieldValue('signupEmail')
+        || preferences.signupEmail
+        || (isAuthenticated ? 'Signed-in session ready' : 'Use email OTP to start a session');
+    const name = profile?.name
+        || readTrimmedFieldValue('signupName')
+        || preferences.signupName
+        || (isAuthenticated ? 'ApplyDesk user' : 'Guest');
+    const stateLabel = isAuthenticated ? 'Signed in' : 'Guest mode';
+
+    sessionStateNodes.forEach((node) => {
+        node.textContent = stateLabel;
+    });
+    sessionEmailNodes.forEach((node) => {
+        node.textContent = email;
+    });
+    sessionNameNodes.forEach((node) => {
+        node.textContent = name;
+    });
+    authOnlyNodes.forEach((node) => {
+        node.hidden = !isAuthenticated;
+    });
+    guestOnlyNodes.forEach((node) => {
+        node.hidden = isAuthenticated;
+    });
+
+    if (refreshSessionButton) {
+        refreshSessionButton.disabled = !isAuthenticated;
+    }
+
+    if (copyApiKeyButton) {
+        copyApiKeyButton.disabled = !isAuthenticated;
+    }
+
+    if (requiresAuth) {
+        applyAuthGateState(isAuthenticated);
+    }
+}
+
+function normalizeSessionProfile(profile) {
+    if (!profile || typeof profile !== 'object') {
+        return null;
+    }
+
+    return {
+        clientId: profile.clientId ?? null,
+        email: profile.email ?? null,
+        name: profile.name ?? null,
+        role: profile.role ?? null,
+    };
+}
+
+function fillSessionFields(profile) {
+    if (!profile) {
+        return;
+    }
+
+    const emailField = getField('signupEmail');
+    if (emailField && profile.email) {
+        emailField.value = profile.email;
+    }
+
+    const nameField = getField('signupName');
+    if (nameField && profile.name) {
+        nameField.value = profile.name;
+    }
+
+    const deliveryEmailField = getField('deliveryEmail');
+    if (deliveryEmailField && !deliveryEmailField.value && profile.email) {
+        deliveryEmailField.value = profile.email;
+    }
+}
+
+async function refreshSessionProfile({ silent = false } = {}) {
+    const apiKey = getActiveApiKey();
+    if (!apiKey) {
+        saveSessionProfile(null);
+        renderSessionChrome(null);
+        return null;
+    }
+
+    try {
+        const response = await request('/v1/auth/me', {
+            method: 'GET',
+            headers: {
+                'x-api-key': apiKey,
+            },
+        });
+        const profile = normalizeSessionProfile(response.identity);
+        saveSessionProfile(profile);
+        fillSessionFields(profile);
+        persistPreferences();
+        renderSessionChrome(profile);
+        return profile;
+    } catch (error) {
+        if (`${error.message ?? ''}`.toLowerCase().includes('api key')) {
+            if (apiKeyInput) {
+                apiKeyInput.value = '';
+            }
+            writeStoredPreferences({
+                ...readStoredPreferences(),
+                apiKey: '',
+            });
+            saveSessionProfile(null);
+            persistPreferences();
+            renderSessionChrome(null);
+            if (requiresAuth) {
+                redirectToLogin();
+            }
+        }
+
+        if (!silent) {
+            throw error;
+        }
+
+        renderSessionChrome(getStoredSessionProfile());
+        return null;
+    }
+}
+
 async function handleSearchSubmit(event) {
     event.preventDefault();
 
-    const payload = buildPayload(form);
+    const payload = buildPayload(searchForm);
     const validationError = validatePayload(payload);
     if (validationError) {
         showStatus(validationError, 'error');
@@ -119,7 +450,7 @@ async function handleSearchSubmit(event) {
 }
 
 async function handleSendEmail() {
-    const payload = buildPayload(form);
+    const payload = buildPayload(searchForm);
     const validationError = validatePayload(payload, {
         requireDeliveryEmail: true,
     });
@@ -143,9 +474,9 @@ async function handleSendEmail() {
 }
 
 async function handleRequestOtp() {
-    const email = form.elements.signupEmail.value.trim();
+    const email = readTrimmedFieldValue('signupEmail');
     if (!email) {
-        showStatus('Signup email is required.', 'error');
+        showStatus('Email is required.', 'error');
         return;
     }
 
@@ -160,7 +491,7 @@ async function handleRequestOtp() {
             },
             body: JSON.stringify({
                 email,
-                name: form.elements.signupName.value.trim() || undefined,
+                name: authMode === 'signup' ? (readTrimmedFieldValue('signupName') || undefined) : undefined,
             }),
         });
         persistPreferences();
@@ -173,10 +504,10 @@ async function handleRequestOtp() {
 }
 
 async function handleVerifyOtp() {
-    const email = form.elements.signupEmail.value.trim();
-    const otp = form.elements.signupOtp.value.trim();
+    const email = readTrimmedFieldValue('signupEmail');
+    const otp = readTrimmedFieldValue('signupOtp');
     if (!email || !otp) {
-        showStatus('Signup email and OTP are required.', 'error');
+        showStatus('Email and OTP are required.', 'error');
         return;
     }
 
@@ -192,13 +523,31 @@ async function handleVerifyOtp() {
             body: JSON.stringify({
                 email,
                 otp,
-                name: form.elements.signupName.value.trim() || undefined,
+                name: authMode === 'signup' ? (readTrimmedFieldValue('signupName') || undefined) : undefined,
             }),
         });
-        apiKeyInput.value = response.apiKey;
-        form.elements.signupOtp.value = '';
+        setActiveApiKey(response.apiKey);
+        const otpField = getField('signupOtp');
+        if (otpField) {
+            otpField.value = '';
+        }
+        const profile = normalizeSessionProfile(response.user);
+        saveSessionProfile(profile);
+        fillSessionFields(profile);
         persistPreferences();
-        showStatus(`Verified ${response.user.email}. Your API key is loaded into the form.`, 'success');
+        renderSessionChrome(profile);
+        showStatus(
+            authMode === 'login'
+                ? `Logged in as ${response.user.email}. Redirecting to the dashboard.`
+                : `Account created for ${response.user.email}. Redirecting to the dashboard.`,
+            'success',
+        );
+        const redirectPath = getNextPath();
+        if (redirectPath) {
+            window.setTimeout(() => {
+                window.location.assign(redirectPath);
+            }, 500);
+        }
     } catch (error) {
         showStatus(error.message, 'error');
     } finally {
@@ -206,8 +555,46 @@ async function handleVerifyOtp() {
     }
 }
 
+async function handleCopyApiKey() {
+    const apiKey = getActiveApiKey();
+    if (!apiKey) {
+        showStatus('No API key is loaded.', 'error');
+        return;
+    }
+
+    try {
+        if (!navigator?.clipboard?.writeText) {
+            throw new Error('Clipboard unavailable');
+        }
+        await navigator.clipboard.writeText(apiKey);
+        showStatus('API key copied.', 'success');
+    } catch {
+        showStatus('Clipboard access is unavailable in this browser.', 'error');
+    }
+}
+
+function handleSignOut() {
+    const preferences = readStoredPreferences();
+    if (apiKeyInput) {
+        apiKeyInput.value = '';
+    }
+
+    writeStoredPreferences({
+        ...preferences,
+        apiKey: '',
+    });
+    saveSessionProfile(null);
+    persistPreferences();
+    renderSessionChrome(null);
+    hideStatus();
+
+    if (requiresAuth) {
+        redirectToLogin();
+    }
+}
+
 async function handleSaveAlert() {
-    const payload = buildPayload(form);
+    const payload = buildPayload(searchForm);
     const validationError = validatePayload(payload, {
         requireDeliveryEmail: true,
         requireCronExpression: true,
@@ -224,7 +611,14 @@ async function handleSaveAlert() {
         const response = await createEmailAlert(payload);
         persistPreferences();
         await loadAlerts();
-        showStatus(`Saved alert for ${response.alert.recipientEmail}. Next run: ${formatDateTime(response.alert.nextRunAt)}.`, 'success');
+        const count = response.count ?? response.alerts?.length ?? (response.alert ? 1 : 0);
+        const nextRunAt = response.alert?.nextRunAt;
+        showStatus(
+            count > 1
+                ? `Saved ${count} alerts. First next run: ${formatDateTime(nextRunAt)}.`
+                : `Saved alert for ${response.alert.recipientEmail}. Next run: ${formatDateTime(nextRunAt)}.`,
+            'success',
+        );
     } catch (error) {
         showStatus(error.message, 'error');
     } finally {
@@ -233,31 +627,65 @@ async function handleSaveAlert() {
 }
 
 function handleReset() {
-    form.reset();
-    apiKeyInput.value = apiKeyInput.value || defaultApiKeyValue();
-    hideAppliedInput.checked = true;
-    form.elements.rows.value = 10;
-    form.elements.pageNumber.value = 1;
-    form.elements.requestDelayMs.value = 600;
-    form.elements.detailConcurrency.value = 3;
-    form.elements.cronPreset.value = '0 * * * *';
-    form.elements.cronExpression.value = '0 * * * *';
+    const existingApiKey = getActiveApiKey();
+    searchForm?.reset();
+
+    if (apiKeyInput) {
+        apiKeyInput.value = existingApiKey || defaultApiKeyValue();
+    }
+
+    if (hideAppliedInput) {
+        hideAppliedInput.checked = true;
+    }
+
+    if (getField('rows')) {
+        getField('rows').value = 10;
+    }
+
+    if (getField('pageNumber')) {
+        getField('pageNumber').value = 1;
+    }
+
+    if (getField('requestDelayMs')) {
+        getField('requestDelayMs').value = 600;
+    }
+
+    if (getField('detailConcurrency')) {
+        getField('detailConcurrency').value = 3;
+    }
+
+    if (getField('cronPreset')) {
+        getField('cronPreset').value = '0 * * * *';
+    }
+
+    if (getField('cronExpression')) {
+        getField('cronExpression').value = '0 * * * *';
+    }
+
     lastResponse = null;
     lastVisibleItems = [];
-    renderResults([]);
-    updateSummary();
+
+    if (resultsList) {
+        renderResults([]);
+    }
+
+    if (resultsSummary) {
+        updateSummary();
+    }
+
     updateResumeFileState();
     persistPreferences();
+    renderSessionChrome();
     hideStatus();
 }
 
 function resetField(fieldName) {
-    const field = form.elements[fieldName];
+    const field = getField(fieldName);
     if (!field) {
         return;
     }
 
-    if (field instanceof HTMLSelectElement) {
+    if (typeof HTMLSelectElement !== 'undefined' && field instanceof HTMLSelectElement) {
         [...field.options].forEach((option) => {
             option.selected = false;
         });
@@ -272,14 +700,22 @@ function resetField(fieldName) {
 }
 
 function changePageNumber(delta) {
-    const currentValue = Number.parseInt(form.elements.pageNumber.value || '1', 10);
+    const pageNumberField = getField('pageNumber');
+    if (!pageNumberField || !searchForm) {
+        return;
+    }
+
+    const currentValue = Number.parseInt(pageNumberField.value || '1', 10);
     const nextValue = Math.max(1, currentValue + delta);
-    form.elements.pageNumber.value = nextValue;
-    form.requestSubmit();
+    pageNumberField.value = nextValue;
+    searchForm.requestSubmit();
 }
 
 function buildPayload(currentForm) {
-    const selectedValues = (fieldName) => [...currentForm.elements[fieldName].selectedOptions].map((option) => option.value);
+    const selectedValues = (fieldName) => {
+        const field = currentForm?.elements?.namedItem(fieldName);
+        return field?.selectedOptions ? [...field.selectedOptions].map((option) => option.value) : [];
+    };
     const parseList = (value) => value.split(',').map((item) => item.trim()).filter(Boolean);
     const parseOptionalNumber = (value) => {
         if (!value) {
@@ -291,24 +727,25 @@ function buildPayload(currentForm) {
     };
 
     return {
-        title: currentForm.elements.title.value.trim(),
-        location: currentForm.elements.location.value.trim(),
-        rows: Number.parseInt(currentForm.elements.rows.value || '10', 10),
-        pageNumber: Number.parseInt(currentForm.elements.pageNumber.value || '1', 10),
-        publishedAt: currentForm.elements.publishedAt.value,
-        companyName: parseList(currentForm.elements.companyName.value),
-        companyId: parseList(currentForm.elements.companyId.value),
+        alertName: currentForm?.elements?.alertName?.value?.trim?.() ?? '',
+        title: currentForm?.elements?.title?.value?.trim?.() ?? '',
+        location: currentForm?.elements?.location?.value?.trim?.() ?? '',
+        rows: Number.parseInt(currentForm?.elements?.rows?.value || '10', 10),
+        pageNumber: Number.parseInt(currentForm?.elements?.pageNumber?.value || '1', 10),
+        publishedAt: currentForm?.elements?.publishedAt?.value ?? '',
+        companyName: parseList(currentForm?.elements?.companyName?.value ?? ''),
+        companyId: parseList(currentForm?.elements?.companyId?.value ?? ''),
         workType: selectedValues('workType'),
         contractType: selectedValues('contractType'),
         experienceLevel: selectedValues('experienceLevel'),
-        resumeUrl: currentForm.elements.resumeUrl.value.trim(),
-        resumeFile: currentForm.elements.resumeFile.files[0] ?? null,
-        resumeMatchMinScore: parseOptionalNumber(currentForm.elements.resumeMatchMinScore.value),
-        resumeMatchMaxScore: parseOptionalNumber(currentForm.elements.resumeMatchMaxScore.value),
-        requestDelayMs: Number.parseInt(currentForm.elements.requestDelayMs.value || '600', 10),
-        detailConcurrency: Number.parseInt(currentForm.elements.detailConcurrency.value || '3', 10),
-        deliveryEmail: currentForm.elements.deliveryEmail.value.trim(),
-        cronExpression: currentForm.elements.cronExpression.value.trim(),
+        resumeUrl: currentForm?.elements?.resumeUrl?.value?.trim?.() ?? '',
+        resumeFile: currentForm?.elements?.resumeFile?.files?.[0] ?? null,
+        resumeMatchMinScore: parseOptionalNumber(currentForm?.elements?.resumeMatchMinScore?.value ?? ''),
+        resumeMatchMaxScore: parseOptionalNumber(currentForm?.elements?.resumeMatchMaxScore?.value ?? ''),
+        requestDelayMs: Number.parseInt(currentForm?.elements?.requestDelayMs?.value || '600', 10),
+        detailConcurrency: Number.parseInt(currentForm?.elements?.detailConcurrency?.value || '3', 10),
+        deliveryEmail: currentForm?.elements?.deliveryEmail?.value?.trim?.() ?? '',
+        cronExpression: currentForm?.elements?.cronExpression?.value?.trim?.() ?? '',
     };
 }
 
@@ -325,9 +762,9 @@ async function createEmailAlert(payload) {
 }
 
 async function requestWithSearchPayload(path, payload) {
-    const apiKey = apiKeyInput.value.trim();
+    const apiKey = getActiveApiKey();
     if (!apiKey) {
-        throw new Error('API key is required.');
+        throw new Error('Log in to continue.');
     }
 
     const headers = {
@@ -351,6 +788,7 @@ async function requestWithSearchPayload(path, payload) {
         appendFormDataValue(formData, 'resumeMatchMaxScore', payload.resumeMatchMaxScore);
         appendFormDataValue(formData, 'requestDelayMs', payload.requestDelayMs);
         appendFormDataValue(formData, 'detailConcurrency', payload.detailConcurrency);
+        appendFormDataValue(formData, 'alertName', payload.alertName);
         appendFormDataValue(formData, 'deliveryEmail', payload.deliveryEmail);
         appendFormDataValue(formData, 'cronExpression', payload.cronExpression);
         formData.append('resumeFile', payload.resumeFile);
@@ -370,6 +808,7 @@ async function requestWithSearchPayload(path, payload) {
         body: JSON.stringify({
             title: payload.title || undefined,
             location: payload.location || undefined,
+            alertName: payload.alertName || undefined,
             rows: payload.rows,
             pageNumber: payload.pageNumber,
             publishedAt: payload.publishedAt || undefined,
@@ -434,24 +873,11 @@ function validatePayload(payload, { requireDeliveryEmail = false, requireCronExp
         return 'Cron expression is required for email alerts.';
     }
 
-    return null;
-}
-
-function syncCronPresetSelection() {
-    const presetValue = form.elements.cronPreset.value;
-    if (presetValue !== 'custom') {
-        form.elements.cronExpression.value = presetValue;
-    } else if (CRON_PRESET_VALUES.includes(form.elements.cronExpression.value)) {
-        form.elements.cronExpression.value = '';
+    if (requireCronExpression && normalizeCronLines(payload.cronExpression).length === 0) {
+        return 'Provide at least one cron expression for email alerts.';
     }
 
-    persistPreferences();
-}
-
-function syncCronPresetFromExpression() {
-    const cronExpression = form.elements.cronExpression.value.trim();
-    form.elements.cronPreset.value = CRON_PRESET_VALUES.includes(cronExpression) ? cronExpression : 'custom';
-    persistPreferences();
+    return null;
 }
 
 function updateResumeFileState() {
@@ -459,7 +885,7 @@ function updateResumeFileState() {
         return;
     }
 
-    const file = form.elements.resumeFile.files[0];
+    const file = readFileValue('resumeFile');
     resumeFileState.textContent = file
         ? `${file.name} · ${(file.size / 1024).toFixed(1)} KB`
         : 'No file selected';
@@ -481,6 +907,10 @@ function rerenderFromLastResponse() {
 }
 
 function renderResults(items) {
+    if (!resultsList || !jobCardTemplate) {
+        return;
+    }
+
     resultsList.innerHTML = '';
 
     if (items.length === 0) {
@@ -570,6 +1000,10 @@ function humanizeMetricName(value) {
 }
 
 function updateSummary(visibleCount = 0) {
+    if (!resultsSummary) {
+        return;
+    }
+
     if (!lastResponse) {
         resultsSummary.textContent = 'Run a search to load jobs.';
         return;
@@ -584,28 +1018,60 @@ function updateSummary(visibleCount = 0) {
 }
 
 function setLoadingState(isLoading) {
-    requestOtpButton.disabled = isLoading;
-    verifyOtpButton.disabled = isLoading;
-    searchButton.disabled = isLoading;
-    nextPageButton.disabled = isLoading;
-    previousPageButton.disabled = isLoading;
-    sendEmailButton.disabled = isLoading;
-    saveAlertButton.disabled = isLoading;
-    refreshAlertsButton.disabled = isLoading;
-    requestOtpButton.textContent = isLoading ? 'Working…' : 'Request OTP';
-    verifyOtpButton.textContent = isLoading ? 'Working…' : 'Verify And Use API Key';
-    searchButton.textContent = isLoading ? 'Working…' : 'Search Jobs';
-    sendEmailButton.textContent = isLoading ? 'Working…' : 'Send Jobs Now';
-    saveAlertButton.textContent = isLoading ? 'Working…' : 'Save Email Alert';
+    if (requestOtpButton) {
+        requestOtpButton.disabled = isLoading;
+        requestOtpButton.textContent = isLoading ? 'Working…' : 'Send OTP';
+    }
+
+    if (verifyOtpButton) {
+        verifyOtpButton.disabled = isLoading;
+        verifyOtpButton.textContent = isLoading
+            ? 'Working…'
+            : authMode === 'signup'
+            ? 'Create Account'
+            : authMode === 'login'
+            ? 'Log In'
+            : 'Verify And Use API Key';
+    }
+
+    if (searchButton) {
+        searchButton.disabled = isLoading;
+        searchButton.textContent = isLoading ? 'Working…' : 'Search Jobs';
+    }
+
+    nextPageButton && (nextPageButton.disabled = isLoading);
+    previousPageButton && (previousPageButton.disabled = isLoading);
+
+    if (sendEmailButton) {
+        sendEmailButton.disabled = isLoading;
+        sendEmailButton.textContent = isLoading ? 'Working…' : 'Send Jobs Now';
+    }
+
+    if (saveAlertButton) {
+        saveAlertButton.disabled = isLoading;
+        saveAlertButton.textContent = isLoading ? 'Working…' : 'Save Email Alert';
+    }
+
+    if (refreshAlertsButton) {
+        refreshAlertsButton.disabled = isLoading;
+    }
 }
 
 function showStatus(message, tone) {
+    if (!statusBanner) {
+        return;
+    }
+
     statusBanner.hidden = false;
     statusBanner.dataset.tone = tone ?? '';
     statusBanner.textContent = message;
 }
 
 function hideStatus() {
+    if (!statusBanner) {
+        return;
+    }
+
     statusBanner.hidden = true;
     statusBanner.textContent = '';
     delete statusBanner.dataset.tone;
@@ -662,13 +1128,17 @@ function openVisibleJobs() {
 
 async function loadAlerts() {
     try {
-        const apiKey = apiKeyInput.value.trim();
-        if (!apiKey) {
-            renderAlerts([]);
+        const apiKey = getActiveApiKey();
+        if (!alertsList || !apiKey) {
+            renderAlerts([], {
+                emptySummary: 'Log in to view and manage saved schedules.',
+            });
             return;
         }
 
-        refreshAlertsButton.disabled = true;
+        if (refreshAlertsButton) {
+            refreshAlertsButton.disabled = true;
+        }
         const response = await request('/v1/jobs/alerts', {
             method: 'GET',
             headers: {
@@ -680,12 +1150,23 @@ async function loadAlerts() {
         renderAlerts([]);
         showStatus(error.message, 'error');
     } finally {
-        refreshAlertsButton.disabled = false;
+        if (refreshAlertsButton) {
+            refreshAlertsButton.disabled = false;
+        }
     }
 }
 
-function renderAlerts(alerts) {
+function renderAlerts(alerts, options = {}) {
+    if (!alertsList) {
+        return;
+    }
+
     alertsList.innerHTML = '';
+    if (alertsSummary) {
+        alertsSummary.textContent = alerts.length === 0
+            ? (options.emptySummary ?? 'No saved alerts yet. Save one or more cron lines to create recurring deliveries.')
+            : `${alerts.length} saved ${alerts.length === 1 ? 'alert' : 'alerts'} for this API key.`;
+    }
 
     if (alerts.length === 0) {
         const emptyState = document.createElement('div');
@@ -699,6 +1180,10 @@ function renderAlerts(alerts) {
         const card = document.createElement('article');
         card.className = 'alert-card';
 
+        const kicker = document.createElement('div');
+        kicker.className = 'alert-card__kicker';
+        kicker.textContent = alert.alertName || 'Recurring alert';
+
         const title = document.createElement('h3');
         title.textContent = summarizeAlertTarget(alert.searchMetadata);
 
@@ -706,7 +1191,7 @@ function renderAlerts(alerts) {
         meta.className = 'alert-card__meta';
         meta.textContent = [
             alert.recipientEmail,
-            `cron ${alert.cronExpression}`,
+            alert.cronExpression,
             `next ${formatDateTime(alert.nextRunAt)}`,
         ].filter(Boolean).join(' · ');
 
@@ -720,8 +1205,33 @@ function renderAlerts(alerts) {
             alert.lastError ? `last error ${alert.lastError}` : null,
         ].filter(Boolean).join(' · ');
 
+        const config = document.createElement('div');
+        config.className = 'alert-card__config';
+        [
+            alert.searchInputSummary?.resumeUrl ? 'Resume URL' : null,
+            alert.searchInputSummary?.hasResumeFile ? 'Resume file stored' : null,
+            alert.searchInputSummary?.publishedAt ? `Posted ${alert.searchInputSummary.publishedAt}` : null,
+            alert.searchInputSummary?.resumeMatchMinScore != null || alert.searchInputSummary?.resumeMatchMaxScore != null
+                ? `Score ${alert.searchInputSummary.resumeMatchMinScore ?? 1}-${alert.searchInputSummary.resumeMatchMaxScore ?? 10}`
+                : null,
+        ].filter(Boolean).forEach((value) => {
+            config.append(createChip(value, 'default'));
+        });
+
         const actions = document.createElement('div');
         actions.className = 'alert-card__actions';
+
+        const loadButton = document.createElement('button');
+        loadButton.type = 'button';
+        loadButton.className = 'button button--ghost';
+        loadButton.textContent = 'Load into form';
+        loadButton.addEventListener('click', () => {
+            loadAlertIntoForm(alert);
+            showStatus(
+                `Loaded "${alert.alertName || summarizeAlertTarget(alert.searchMetadata)}" into the form.${alert.searchInputSummary?.hasResumeFile ? ' Reattach the resume file before saving if you need the file-based match again.' : ''}`,
+                'success',
+            );
+        });
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
@@ -737,16 +1247,20 @@ function renderAlerts(alerts) {
             }
         });
 
-        actions.append(deleteButton);
-        card.append(title, meta, stats, actions);
+        actions.append(loadButton, deleteButton);
+        card.append(kicker, title, meta, stats);
+        if (config.childElementCount > 0) {
+            card.append(config);
+        }
+        card.append(actions);
         alertsList.append(card);
     }
 }
 
 async function deleteAlert(alertId) {
-    const apiKey = apiKeyInput.value.trim();
+    const apiKey = getActiveApiKey();
     if (!apiKey) {
-        throw new Error('API key is required.');
+        throw new Error('Log in to continue.');
     }
 
     await request(`/v1/jobs/alerts/${alertId}`, {
@@ -766,6 +1280,56 @@ function summarizeAlertTarget(searchMetadata = {}) {
     return primary || companies || 'Saved jobs alert';
 }
 
+function applyMultiSelectValues(fieldName, values = []) {
+    const field = getField(fieldName);
+    if (!field?.options) {
+        return;
+    }
+
+    for (const option of field.options) {
+        option.selected = values.includes(option.value);
+    }
+}
+
+function loadAlertIntoForm(alert) {
+    if (!searchForm) {
+        return;
+    }
+
+    const summary = alert.searchInputSummary ?? {};
+    const setValue = (fieldName, value) => {
+        const field = getField(fieldName);
+        if (field) {
+            field.value = value ?? '';
+        }
+    };
+
+    setValue('alertName', alert.alertName ?? '');
+    setValue('deliveryEmail', alert.recipientEmail ?? '');
+    setValue('cronExpression', alert.cronExpression ?? '');
+    setValue('title', summary.title ?? '');
+    setValue('location', summary.location ?? '');
+    setValue('rows', summary.rows ?? 10);
+    setValue('pageNumber', summary.pageNumber ?? 1);
+    setValue('publishedAt', summary.publishedAt ?? '');
+    setValue('companyName', Array.isArray(summary.companyName) ? summary.companyName.join(', ') : '');
+    setValue('companyId', Array.isArray(summary.companyId) ? summary.companyId.join(', ') : '');
+    setValue('resumeUrl', summary.resumeUrl ?? '');
+    setValue('resumeMatchMinScore', summary.resumeMatchMinScore ?? '');
+    setValue('resumeMatchMaxScore', summary.resumeMatchMaxScore ?? '');
+    setValue('requestDelayMs', summary.requestDelayMs ?? 600);
+    setValue('detailConcurrency', summary.detailConcurrency ?? 3);
+    if (getField('resumeFile')) {
+        getField('resumeFile').value = '';
+    }
+    applyMultiSelectValues('workType', summary.workType ?? []);
+    applyMultiSelectValues('contractType', summary.contractType ?? []);
+    applyMultiSelectValues('experienceLevel', summary.experienceLevel ?? []);
+    updateResumeFileState();
+    persistPreferences();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 function formatDateTime(value) {
     if (!value) {
         return 'n/a';
@@ -780,47 +1344,63 @@ function formatDateTime(value) {
 }
 
 function persistPreferences() {
+    const existing = readStoredPreferences();
+    const readValue = (fieldName, fallback = '') => getField(fieldName)
+        ? readFieldValue(fieldName, fallback)
+        : (existing[fieldName] ?? fallback);
+    const readSelected = (fieldName) => getField(fieldName)
+        ? readSelectedValues(fieldName)
+        : (Array.isArray(existing[fieldName]) ? existing[fieldName] : []);
+
     const preferences = {
-        apiKey: apiKeyInput.value,
-        hideApplied: hideAppliedInput.checked,
-        signupName: form.elements.signupName.value,
-        signupEmail: form.elements.signupEmail.value,
-        title: form.elements.title.value,
-        location: form.elements.location.value,
-        rows: form.elements.rows.value,
-        pageNumber: form.elements.pageNumber.value,
-        publishedAt: form.elements.publishedAt.value,
-        companyName: form.elements.companyName.value,
-        companyId: form.elements.companyId.value,
-        resumeUrl: form.elements.resumeUrl.value,
-        resumeMatchMinScore: form.elements.resumeMatchMinScore.value,
-        resumeMatchMaxScore: form.elements.resumeMatchMaxScore.value,
-        requestDelayMs: form.elements.requestDelayMs.value,
-        detailConcurrency: form.elements.detailConcurrency.value,
-        deliveryEmail: form.elements.deliveryEmail.value,
-        cronPreset: form.elements.cronPreset.value,
-        cronExpression: form.elements.cronExpression.value,
-        workType: [...form.elements.workType.selectedOptions].map((option) => option.value),
-        contractType: [...form.elements.contractType.selectedOptions].map((option) => option.value),
-        experienceLevel: [...form.elements.experienceLevel.selectedOptions].map((option) => option.value),
+        ...existing,
+        apiKey: apiKeyInput?.value ?? existing.apiKey ?? '',
+        hideApplied: hideAppliedInput?.checked ?? true,
+        signupName: readValue('signupName'),
+        signupEmail: readValue('signupEmail'),
+        alertName: readValue('alertName'),
+        title: readValue('title'),
+        location: readValue('location'),
+        rows: readValue('rows'),
+        pageNumber: readValue('pageNumber'),
+        publishedAt: readValue('publishedAt'),
+        companyName: readValue('companyName'),
+        companyId: readValue('companyId'),
+        resumeUrl: readValue('resumeUrl'),
+        resumeMatchMinScore: readValue('resumeMatchMinScore'),
+        resumeMatchMaxScore: readValue('resumeMatchMaxScore'),
+        requestDelayMs: readValue('requestDelayMs'),
+        detailConcurrency: readValue('detailConcurrency'),
+        deliveryEmail: readValue('deliveryEmail'),
+        cronExpression: readValue('cronExpression'),
+        workType: readSelected('workType'),
+        contractType: readSelected('contractType'),
+        experienceLevel: readSelected('experienceLevel'),
     };
 
-    localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(preferences));
+    writeStoredPreferences(preferences);
 }
 
 function hydratePreferences() {
-    apiKeyInput.value = defaultApiKeyValue();
+    if (apiKeyInput) {
+        apiKeyInput.value = defaultApiKeyValue();
+    }
 
     try {
-        const preferences = JSON.parse(localStorage.getItem(PREFERENCES_STORAGE_KEY) ?? '{}');
+        const preferences = readStoredPreferences();
         if (!preferences || typeof preferences !== 'object') {
             return;
         }
 
-        apiKeyInput.value = preferences.apiKey || apiKeyInput.value;
-        hideAppliedInput.checked = preferences.hideApplied ?? true;
+        if (apiKeyInput) {
+            apiKeyInput.value = preferences.apiKey || apiKeyInput.value;
+        }
+        if (hideAppliedInput) {
+            hideAppliedInput.checked = preferences.hideApplied ?? true;
+        }
 
         for (const fieldName of [
+            'alertName',
             'title',
             'signupName',
             'signupEmail',
@@ -836,11 +1416,11 @@ function hydratePreferences() {
             'requestDelayMs',
             'detailConcurrency',
             'deliveryEmail',
-            'cronPreset',
             'cronExpression',
         ]) {
-            if (preferences[fieldName] != null && form.elements[fieldName]) {
-                form.elements[fieldName].value = preferences[fieldName];
+            const field = getField(fieldName);
+            if (preferences[fieldName] != null && field) {
+                field.value = preferences[fieldName];
             }
         }
 
@@ -849,15 +1429,18 @@ function hydratePreferences() {
             contractType: preferences.contractType,
             experienceLevel: preferences.experienceLevel,
         })) {
-            if (!Array.isArray(values) || !form.elements[fieldName]) {
+            const field = getField(fieldName);
+            if (!Array.isArray(values) || !field) {
                 continue;
             }
 
-            for (const option of form.elements[fieldName].options) {
+            for (const option of field.options) {
                 option.selected = values.includes(option.value);
             }
         }
     } catch {
-        apiKeyInput.value = defaultApiKeyValue();
+        if (apiKeyInput) {
+            apiKeyInput.value = defaultApiKeyValue();
+        }
     }
 }
