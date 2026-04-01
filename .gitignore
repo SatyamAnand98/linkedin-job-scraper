@@ -1,6 +1,6 @@
 node_modules
 apify_storage
-storage
+/storage
 .env
 .DS_Store
 .env.local
