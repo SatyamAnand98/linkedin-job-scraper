@@ -1,11 +1,13 @@
 <!doctype html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>ApplyDesk Cloud | Dashboard</title>
     <link rel="stylesheet" href="/app/styles.css">
 </head>
+
 <body data-page="account" data-requires-auth="true">
     <div class="page-shell">
         <header class="app-header">
@@ -36,21 +38,6 @@
         </header>
 
         <main class="site-main">
-            <section class="page-hero">
-                <div class="page-hero__copy">
-                    <p class="section-heading__eyebrow">Dashboard</p>
-                    <h1>Your account.</h1>
-                    <p>Session, key, and shortcuts.</p>
-                </div>
-
-                <aside class="page-hero__panel">
-                    <article class="dashboard-card dashboard-card--highlight">
-                        <span class="dashboard-card__label">Account status</span>
-                        <strong class="dashboard-card__value" data-session-state>Guest mode</strong>
-                        <p data-session-email>Sign in to view your account details.</p>
-                    </article>
-                </aside>
-            </section>
 
             <section data-protected-content>
                 <div id="status-banner" class="status-banner" hidden></div>
@@ -72,23 +59,25 @@
                         <form id="account-form" class="form-grid">
                             <label class="field field--full">
                                 <span>API key</span>
-                                <input id="api-key" name="apiKey" type="password" autocomplete="off" readonly placeholder="Your active API key">
+                                <input id="api-key" name="apiKey" type="password" autocomplete="off" readonly
+                                    placeholder="Your active API key">
                             </label>
 
                             <label class="field">
                                 <span>Name</span>
-                                <input name="signupName" type="text" readonly placeholder="Loaded from your verified session">
+                                <input name="signupName" type="text" readonly
+                                    placeholder="Loaded from your verified session">
                             </label>
 
                             <label class="field">
                                 <span>Email</span>
-                                <input name="signupEmail" type="email" readonly placeholder="Loaded from your verified session">
+                                <input name="signupEmail" type="email" readonly
+                                    placeholder="Loaded from your verified session">
                             </label>
 
                             <div class="actions field--full">
-                                <button type="button" id="refresh-session" class="button button--ghost">Refresh</button>
-                                <button type="button" id="copy-api-key" class="button button--ghost">Copy Key</button>
-                                <a class="button button--primary" href="/app/search">Search</a>
+                                <button type="button" id="refresh-session" class="button button--ghost"
+                                    title="Re-sync your session data from the server">↻ Refresh Session</button>
                             </div>
                         </form>
                     </article>
@@ -113,4 +102,5 @@
 
     <script type="module" src="/app/app.js"></script>
 </body>
+
 </html>

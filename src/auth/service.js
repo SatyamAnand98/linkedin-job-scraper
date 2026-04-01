@@ -220,6 +220,25 @@ export function createAuthService(authConfig, {
         const now = new Date().toISOString();
         const existingUser = userRepository ? await userRepository.findByEmail(normalizedEmail) : null;
         const apiKey = generateApiKey();
+
+        const newKeyEntry = {
+            hash: hashToken(apiKey),
+            preview: `${apiKey.slice(0, 8)}...`,
+            createdAt: now,
+        };
+
+        const existingHashes = existingUser?.apiKeyHashes || [];
+        if (existingUser?.apiKeyHash && !existingHashes.some(k => k.hash === existingUser.apiKeyHash)) {
+            existingHashes.push({
+                hash: existingUser.apiKeyHash,
+                preview: existingUser.apiKeyPreview,
+                createdAt: existingUser.createdAt || now,
+            });
+        }
+
+        existingHashes.push(newKeyEntry);
+        const activeHashes = existingHashes.slice(-5);
+
         const nextUser = {
             ...(existingUser ? toUserDocument(existingUser) : {}),
             userId: existingUser?.userId ?? randomBytes(12).toString('hex'),
@@ -231,6 +250,7 @@ export function createAuthService(authConfig, {
             permissions: existingUser?.permissions ?? [],
             apiKeyHash: hashToken(apiKey),
             apiKeyPreview: `${apiKey.slice(0, 8)}...`,
+            apiKeyHashes: activeHashes,
             createdAt: existingUser?.createdAt ?? now,
             updatedAt: now,
             verifiedAt: now,

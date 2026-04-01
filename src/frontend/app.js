@@ -12,6 +12,7 @@ const searchForm = isBrowser ? document.querySelector('#search-form') : null;
 const accountForm = isBrowser ? document.querySelector('#account-form') : null;
 const apiKeyInput = isBrowser ? document.querySelector('#api-key') : null;
 const hideAppliedInput = isBrowser ? document.querySelector('#hide-applied') : null;
+const resultsSortInput = isBrowser ? document.querySelector('#results-sort') : null;
 const resultsSummary = isBrowser ? document.querySelector('#results-summary') : null;
 const resultsList = isBrowser ? document.querySelector('#results-list') : null;
 const statusBanner = isBrowser ? document.querySelector('#status-banner') : null;
@@ -51,6 +52,8 @@ let lastVisibleItems = [];
 let otpRequested = false;
 let otpRequestedEmail = '';
 let uiLoading = false;
+let appliedJobsPersistenceMode = 'local';
+let appliedJobsCache = new Set();
 
 if (isBrowser) {
     bootstrap();
@@ -113,6 +116,7 @@ function appendCronPreset(cronValue) {
 
 function bootstrap() {
     hydratePreferences();
+    hydrateAppliedJobsCache();
     renderSessionChrome();
     syncOtpFormState();
     window.addEventListener('storage', handleStorageUpdate);
@@ -146,7 +150,9 @@ function bootstrap() {
     getField('signupEmail')?.addEventListener('input', handleAuthEmailInput);
     getField('signupOtp')?.addEventListener('input', handleOtpInput);
     openVisibleButton?.addEventListener('click', openVisibleJobs);
-    clearAppliedButton?.addEventListener('click', clearAppliedJobs);
+    clearAppliedButton?.addEventListener('click', () => {
+        void handleClearAppliedJobs();
+    });
     sendEmailButton?.addEventListener('click', handleSendEmail);
     saveAlertButton?.addEventListener('click', handleSaveAlert);
     refreshAlertsButton?.addEventListener('click', loadAlerts);
@@ -162,7 +168,45 @@ function bootstrap() {
             appendCronPreset(button.dataset.cronValue);
         });
     });
+
+    // Visual cron builder
+    const cronTabs = document.querySelectorAll('.cron-tab');
+    const cronPanelInterval = document.querySelector('#cron-panel-interval');
+    const cronPanelDaily = document.querySelector('#cron-panel-daily');
+
+    cronTabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+            cronTabs.forEach(t => t.classList.remove('cron-tab--active'));
+            tab.classList.add('cron-tab--active');
+            const mode = tab.dataset.mode;
+            if (cronPanelInterval) cronPanelInterval.hidden = mode !== 'interval';
+            if (cronPanelDaily) cronPanelDaily.hidden = mode !== 'daily';
+        });
+    });
+
+    document.querySelector('#cron-add-interval')?.addEventListener('click', () => {
+        const val = parseInt(document.querySelector('#cron-interval-value')?.value || '30', 10);
+        const unit = document.querySelector('#cron-interval-unit')?.value || 'minutes';
+        const cron = unit === 'minutes' ? `*/${val} * * * *` : `0 */${val} * * *`;
+        appendCronPreset(cron);
+    });
+
+    document.querySelector('#cron-add-daily')?.addEventListener('click', () => {
+        let hour = parseInt(document.querySelector('#cron-hour')?.value || '9', 10);
+        const minute = parseInt(document.querySelector('#cron-minute')?.value || '0', 10);
+        const ampm = document.querySelector('#cron-ampm')?.value || 'AM';
+        if (ampm === 'PM' && hour !== 12) hour += 12;
+        if (ampm === 'AM' && hour === 12) hour = 0;
+        const days = [...document.querySelectorAll('.cron-day-chips input:checked')].map(c => c.value);
+        const dayStr = days.length === 7 || days.length === 0 ? '*' : days.join(',');
+        const cron = `${minute} ${hour} * * ${dayStr}`;
+        appendCronPreset(cron);
+    });
     hideAppliedInput?.addEventListener('change', () => {
+        persistPreferences();
+        rerenderFromLastResponse();
+    });
+    resultsSortInput?.addEventListener('change', () => {
         persistPreferences();
         rerenderFromLastResponse();
     });
@@ -204,6 +248,7 @@ function bootstrap() {
 
     if (getActiveApiKey()) {
         void refreshSessionProfile({ silent: true });
+        void loadAppliedJobs({ silent: true });
     }
 }
 
@@ -369,6 +414,7 @@ function syncAuthStateFromStorage() {
     const profile = storedApiKey ? getStoredSessionProfile() : null;
     fillSessionFields(profile);
     renderSessionChrome(profile);
+    void loadAppliedJobs({ silent: true });
 
     if (requiresAuth && !storedApiKey) {
         redirectToLogin();
@@ -376,7 +422,17 @@ function syncAuthStateFromStorage() {
 }
 
 function handleStorageUpdate(event) {
-    if (!event || ![PREFERENCES_STORAGE_KEY, SESSION_PROFILE_STORAGE_KEY].includes(event.key)) {
+    if (!event || ![APPLIED_JOBS_STORAGE_KEY, PREFERENCES_STORAGE_KEY, SESSION_PROFILE_STORAGE_KEY].includes(event.key)) {
+        return;
+    }
+
+    if (event.key === APPLIED_JOBS_STORAGE_KEY) {
+        if (appliedJobsPersistenceMode !== 'local') {
+            return;
+        }
+
+        hydrateAppliedJobsCache();
+        rerenderFromLastResponse();
         return;
     }
 
@@ -508,6 +564,7 @@ async function refreshSessionProfile({ silent = false } = {}) {
     const apiKey = getActiveApiKey();
     if (!apiKey) {
         saveSessionProfile(null);
+        setAppliedJobIds(readLocalAppliedJobIds(), { source: 'local' });
         renderSessionChrome(null);
         return null;
     }
@@ -524,6 +581,7 @@ async function refreshSessionProfile({ silent = false } = {}) {
         fillSessionFields(profile);
         persistPreferences();
         renderSessionChrome(profile);
+        await loadAppliedJobs({ silent: true });
         return profile;
     } catch (error) {
         if (`${error.message ?? ''}`.toLowerCase().includes('api key')) {
@@ -535,6 +593,7 @@ async function refreshSessionProfile({ silent = false } = {}) {
                 apiKey: '',
             });
             saveSessionProfile(null);
+            setAppliedJobIds(readLocalAppliedJobIds(), { source: 'local' });
             persistPreferences();
             renderSessionChrome(null);
             if (requiresAuth) {
@@ -716,8 +775,10 @@ function handleSignOut() {
         apiKey: '',
     });
     saveSessionProfile(null);
+    setAppliedJobIds(readLocalAppliedJobIds(), { source: 'local' });
     persistPreferences();
     renderSessionChrome(null);
+    rerenderFromLastResponse();
     hideStatus();
 
     if (requiresAuth) {
@@ -768,6 +829,10 @@ function handleReset() {
 
     if (hideAppliedInput) {
         hideAppliedInput.checked = true;
+    }
+
+    if (resultsSortInput) {
+        resultsSortInput.value = 'api';
     }
 
     if (getField('rows')) {
@@ -882,7 +947,9 @@ function buildPayload(currentForm) {
 }
 
 async function searchJobs(payload) {
-    return requestWithSearchPayload('/v1/jobs/search', payload);
+    return requestWithSearchPayload('/v1/jobs/search', payload, {
+        includeApplied: !(hideAppliedInput?.checked ?? true),
+    });
 }
 
 async function sendJobsByEmail(payload) {
@@ -893,7 +960,7 @@ async function createEmailAlert(payload) {
     return requestWithSearchPayload('/v1/jobs/alerts', payload);
 }
 
-async function requestWithSearchPayload(path, payload) {
+async function requestWithSearchPayload(path, payload, extraFields = {}) {
     const apiKey = getActiveApiKey();
     if (!apiKey) {
         throw new Error('Log in to continue.');
@@ -923,6 +990,9 @@ async function requestWithSearchPayload(path, payload) {
         appendFormDataValue(formData, 'alertName', payload.alertName);
         appendFormDataValue(formData, 'deliveryEmail', payload.deliveryEmail);
         appendFormDataValue(formData, 'cronExpression', payload.cronExpression);
+        for (const [key, value] of Object.entries(extraFields)) {
+            appendFormDataValue(formData, key, value);
+        }
         formData.append('resumeFile', payload.resumeFile);
 
         return request(path, {
@@ -956,6 +1026,7 @@ async function requestWithSearchPayload(path, payload) {
             detailConcurrency: payload.detailConcurrency,
             deliveryEmail: payload.deliveryEmail || undefined,
             cronExpression: payload.cronExpression || undefined,
+            ...extraFields,
         }),
     });
 }
@@ -1023,6 +1094,44 @@ function updateResumeFileState() {
         : 'No file selected';
 }
 
+function getResultsSortValue() {
+    return resultsSortInput?.value ?? 'api';
+}
+
+function sortResultItems(items) {
+    const sortValue = getResultsSortValue();
+    if (sortValue === 'api') {
+        return [...items];
+    }
+
+    const sorted = items.map((item, index) => ({
+        item,
+        index,
+        score: typeof item.resumeMatch?.score === 'number' ? item.resumeMatch.score : null,
+    }));
+
+    sorted.sort((left, right) => {
+        if (left.score == null && right.score == null) {
+            return left.index - right.index;
+        }
+
+        if (left.score == null) {
+            return 1;
+        }
+
+        if (right.score == null) {
+            return -1;
+        }
+
+        const scoreDelta = sortValue === 'match-asc'
+            ? left.score - right.score
+            : right.score - left.score;
+        return scoreDelta || (left.index - right.index);
+    });
+
+    return sorted.map(({ item }) => item);
+}
+
 function rerenderFromLastResponse() {
     if (!lastResponse) {
         renderResults([]);
@@ -1033,9 +1142,10 @@ function rerenderFromLastResponse() {
     const appliedJobs = getAppliedJobIds();
     const hideApplied = hideAppliedInput.checked;
     const visibleItems = lastResponse.response.items.filter((item) => !hideApplied || !appliedJobs.has(item.jobId));
-    lastVisibleItems = visibleItems;
-    renderResults(visibleItems);
-    updateSummary(visibleItems.length);
+    const sortedVisibleItems = sortResultItems(visibleItems);
+    lastVisibleItems = sortedVisibleItems;
+    renderResults(sortedVisibleItems);
+    updateSummary(sortedVisibleItems.length);
 }
 
 function renderResults(items) {
@@ -1045,7 +1155,10 @@ function renderResults(items) {
 
     resultsList.innerHTML = '';
 
+    const paginationFooter = document.querySelector('.pagination-footer');
+
     if (items.length === 0) {
+        if (paginationFooter) paginationFooter.style.display = 'none';
         const emptyState = document.createElement('div');
         emptyState.className = 'empty-state';
         emptyState.textContent = lastResponse
@@ -1055,27 +1168,37 @@ function renderResults(items) {
         return;
     }
 
+    if (paginationFooter) paginationFooter.style.display = 'flex';
+
     const appliedJobs = getAppliedJobIds();
 
     for (const item of items) {
         const fragment = jobCardTemplate.content.cloneNode(true);
         const card = fragment.querySelector('.job-card');
+        const logo = fragment.querySelector('.job-card__logo');
         const meta = fragment.querySelector('.job-card__meta');
         const title = fragment.querySelector('.job-card__title');
         const company = fragment.querySelector('.job-card__company');
         const score = fragment.querySelector('.job-card__score');
         const chips = fragment.querySelector('.job-card__chips');
-        const summary = fragment.querySelector('.job-card__summary');
         const breakdown = fragment.querySelector('.job-card__breakdown');
+        const breakdownToggle = fragment.querySelector('.job-card__breakdown-toggle');
+        const breakdownLabel = fragment.querySelector('.job-card__breakdown-toggle-label');
         const applyButton = fragment.querySelector('.job-card__apply');
         const toggleButton = fragment.querySelector('.job-card__toggle');
 
         const isApplied = appliedJobs.has(item.jobId);
         card.dataset.applied = `${isApplied}`;
-        meta.textContent = [item.location, item.postedTimeAgo || item.listedAtText, `Job ID ${item.jobId}`].filter(Boolean).join(' · ');
+
+        if (logo && item.companyLogoUrl) {
+            logo.src = item.companyLogoUrl;
+            logo.hidden = false;
+            logo.style.display = 'block';
+        }
+
+        meta.textContent = [item.location, item.postedTimeAgo || item.listedAtText, item.applicantsText, `Job ID ${item.jobId}`].filter(Boolean).join(' · ');
         title.textContent = item.title ?? 'Untitled role';
         company.textContent = item.companyName ?? 'Unknown company';
-        summary.textContent = item.resumeMatch?.summary ?? item.descriptionText?.slice(0, 220) ?? 'No summary available.';
 
         if (item.resumeMatch) {
             score.innerHTML = `<strong>${item.resumeMatch.score}</strong><span>/10 match</span>`;
@@ -1102,12 +1225,18 @@ function renderResults(items) {
             for (const [key, value] of Object.entries(item.resumeMatch.breakdown)) {
                 breakdown.append(createChip(`${humanizeMetricName(key)} ${value}`, 'default'));
             }
+            breakdownToggle.hidden = false;
+            breakdownToggle.addEventListener('click', () => {
+                const isHidden = breakdown.hidden;
+                breakdown.hidden = !isHidden;
+                breakdownLabel.textContent = isHidden ? 'Hide match details' : 'Show match details';
+                breakdownToggle.querySelector('.job-card__breakdown-toggle-icon').textContent = isHidden ? '▴' : '▾';
+            });
         }
 
         toggleButton.textContent = isApplied ? 'Remove applied mark' : 'Mark applied';
         toggleButton.addEventListener('click', () => {
-            toggleAppliedJob(item.jobId);
-            rerenderFromLastResponse();
+            void handleAppliedJobToggle(item.jobId);
         });
 
         resultsList.append(fragment);
@@ -1162,8 +1291,8 @@ function setLoadingState(isLoading) {
         verifyOtpButton.textContent = isLoading
             ? 'Working…'
             : authMode === 'login'
-            ? 'Continue'
-            : 'Verify OTP';
+                ? 'Continue'
+                : 'Verify OTP';
     }
 
     if (searchButton) {
@@ -1173,6 +1302,9 @@ function setLoadingState(isLoading) {
 
     nextPageButton && (nextPageButton.disabled = isLoading);
     previousPageButton && (previousPageButton.disabled = isLoading);
+    resultsSortInput && (resultsSortInput.disabled = isLoading);
+    openVisibleButton && (openVisibleButton.disabled = isLoading);
+    clearAppliedButton && (clearAppliedButton.disabled = isLoading);
 
     if (sendEmailButton) {
         sendEmailButton.disabled = isLoading;
@@ -1209,7 +1341,7 @@ function hideStatus() {
     delete statusBanner.dataset.tone;
 }
 
-function getAppliedJobIds() {
+function readLocalAppliedJobIds() {
     try {
         const value = JSON.parse(localStorage.getItem(APPLIED_JOBS_STORAGE_KEY) ?? '[]');
         return new Set(Array.isArray(value) ? value : []);
@@ -1218,30 +1350,158 @@ function getAppliedJobIds() {
     }
 }
 
-function saveAppliedJobIds(appliedJobs) {
+function saveLocalAppliedJobIds(appliedJobs) {
     localStorage.setItem(APPLIED_JOBS_STORAGE_KEY, JSON.stringify([...appliedJobs]));
 }
 
-function markAppliedJob(jobId) {
-    const appliedJobs = getAppliedJobIds();
-    appliedJobs.add(jobId);
-    saveAppliedJobIds(appliedJobs);
+function hydrateAppliedJobsCache() {
+    setAppliedJobIds(readLocalAppliedJobIds(), { source: 'local' });
 }
 
-function toggleAppliedJob(jobId) {
-    const appliedJobs = getAppliedJobIds();
-    if (appliedJobs.has(jobId)) {
-        appliedJobs.delete(jobId);
-    } else {
-        appliedJobs.add(jobId);
+function setAppliedJobIds(appliedJobs, { source = appliedJobsPersistenceMode } = {}) {
+    const normalized = new Set(
+        [...appliedJobs]
+            .map((jobId) => `${jobId ?? ''}`.trim())
+            .filter(Boolean),
+    );
+    appliedJobsPersistenceMode = source;
+    appliedJobsCache = normalized;
+
+    if (source === 'local') {
+        if (normalized.size === 0) {
+            localStorage.removeItem(APPLIED_JOBS_STORAGE_KEY);
+        } else {
+            saveLocalAppliedJobIds(normalized);
+        }
     }
-    saveAppliedJobIds(appliedJobs);
 }
 
-function clearAppliedJobs() {
-    localStorage.removeItem(APPLIED_JOBS_STORAGE_KEY);
+function getAppliedJobIds() {
+    return new Set(appliedJobsCache);
+}
+
+async function loadAppliedJobs({ silent = false } = {}) {
+    const apiKey = getActiveApiKey();
+    if (!apiKey) {
+        setAppliedJobIds(readLocalAppliedJobIds(), { source: 'local' });
+        return null;
+    }
+
+    try {
+        const response = await request('/v1/jobs/applied', {
+            method: 'GET',
+            headers: {
+                'x-api-key': apiKey,
+            },
+        });
+        setAppliedJobIds(
+            new Set((response.items ?? []).map((item) => `${item?.jobId ?? ''}`.trim()).filter(Boolean)),
+            { source: 'remote' },
+        );
+        rerenderFromLastResponse();
+        return response;
+    } catch (error) {
+        setAppliedJobIds(readLocalAppliedJobIds(), { source: 'local' });
+        if (!silent) {
+            throw error;
+        }
+
+        return null;
+    }
+}
+
+async function markAppliedJob(jobId) {
+    const normalizedJobId = `${jobId ?? ''}`.trim();
+    if (!normalizedJobId) {
+        throw new Error('Job ID is required.');
+    }
+
+    if (appliedJobsPersistenceMode === 'remote') {
+        await request('/v1/jobs/applied', {
+            method: 'POST',
+            headers: {
+                'content-type': 'application/json',
+                'x-api-key': getActiveApiKey(),
+            },
+            body: JSON.stringify({
+                jobId: normalizedJobId,
+            }),
+        });
+        const appliedJobs = getAppliedJobIds();
+        appliedJobs.add(normalizedJobId);
+        setAppliedJobIds(appliedJobs, { source: 'remote' });
+        return true;
+    }
+
+    const appliedJobs = getAppliedJobIds();
+    appliedJobs.add(normalizedJobId);
+    setAppliedJobIds(appliedJobs, { source: 'local' });
+    return true;
+}
+
+async function removeAppliedJob(jobId) {
+    const normalizedJobId = `${jobId ?? ''}`.trim();
+    if (!normalizedJobId) {
+        throw new Error('Job ID is required.');
+    }
+
+    if (appliedJobsPersistenceMode === 'remote') {
+        await request(`/v1/jobs/applied/${encodeURIComponent(normalizedJobId)}`, {
+            method: 'DELETE',
+            headers: {
+                'x-api-key': getActiveApiKey(),
+            },
+        });
+        const appliedJobs = getAppliedJobIds();
+        appliedJobs.delete(normalizedJobId);
+        setAppliedJobIds(appliedJobs, { source: 'remote' });
+        return false;
+    }
+
+    const appliedJobs = getAppliedJobIds();
+    appliedJobs.delete(normalizedJobId);
+    setAppliedJobIds(appliedJobs, { source: 'local' });
+    return false;
+}
+
+async function toggleAppliedJob(jobId) {
+    const normalizedJobId = `${jobId ?? ''}`.trim();
+    const appliedJobs = getAppliedJobIds();
+    return appliedJobs.has(normalizedJobId)
+        ? removeAppliedJob(normalizedJobId)
+        : markAppliedJob(normalizedJobId);
+}
+
+async function handleAppliedJobToggle(jobId) {
+    try {
+        const isApplied = await toggleAppliedJob(jobId);
+        rerenderFromLastResponse();
+        showStatus(isApplied ? 'Job marked as applied.' : 'Applied mark removed.', 'success');
+    } catch (error) {
+        showStatus(error.message, 'error');
+    }
+}
+
+async function handleClearAppliedJobs() {
+    try {
+        if (appliedJobsPersistenceMode === 'remote') {
+            await request('/v1/jobs/applied', {
+                method: 'DELETE',
+                headers: {
+                    'x-api-key': getActiveApiKey(),
+                },
+            });
+            setAppliedJobIds(new Set(), { source: 'remote' });
+        } else {
+            setAppliedJobIds(new Set(), { source: 'local' });
+        }
+    } catch (error) {
+        showStatus(error.message, 'error');
+        return;
+    }
+
     rerenderFromLastResponse();
-    showStatus('Local applied marks cleared.', 'success');
+    showStatus('Applied marks cleared.', 'success');
 }
 
 function openVisibleJobs() {
@@ -1255,7 +1515,7 @@ function openVisibleJobs() {
             window.open(item.url, '_blank', 'noopener,noreferrer');
         }
     }
-    showStatus(`Opened ${lastVisibleItems.length} jobs in new tabs. Mark applied separately when you want to hide them.`, 'success');
+    showStatus(`Opened ${lastVisibleItems.length} jobs in new tabs. Mark applied to hide them from future searches.`, 'success');
 }
 
 async function loadAlerts() {
@@ -1488,6 +1748,7 @@ function persistPreferences() {
         ...existing,
         apiKey: normalizeApiKeyValue(apiKeyInput?.value) || getStoredApiKey(existing) || '',
         hideApplied: hideAppliedInput?.checked ?? true,
+        resultsSort: resultsSortInput?.value ?? 'api',
         signupName: readValue('signupName'),
         signupEmail: readValue('signupEmail'),
         alertName: readValue('alertName'),
@@ -1536,6 +1797,9 @@ function hydratePreferences() {
         }
         if (hideAppliedInput) {
             hideAppliedInput.checked = preferences.hideApplied ?? true;
+        }
+        if (resultsSortInput) {
+            resultsSortInput.value = preferences.resultsSort ?? 'api';
         }
 
         for (const fieldName of [

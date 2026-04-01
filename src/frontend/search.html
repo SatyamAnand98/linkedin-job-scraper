@@ -1,11 +1,13 @@
 <!doctype html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>ApplyDesk Cloud | Search Jobs</title>
     <link rel="stylesheet" href="/app/styles.css">
 </head>
+
 <body data-page="search" data-requires-auth="true">
     <div class="page-shell">
         <header class="app-header">
@@ -36,21 +38,6 @@
         </header>
 
         <main class="site-main">
-            <section class="page-hero">
-                <div class="page-hero__copy">
-                    <p class="section-heading__eyebrow">Search</p>
-                    <h1>Search jobs.</h1>
-                    <p>Filter by role, company, and resume fit.</p>
-                </div>
-
-                <aside class="page-hero__panel">
-                    <article class="dashboard-card">
-                        <span class="dashboard-card__label">Session</span>
-                        <strong class="dashboard-card__value" data-session-name>ApplyDesk user</strong>
-                        <p data-session-email>Session active.</p>
-                    </article>
-                </aside>
-            </section>
 
             <section data-protected-content>
                 <section class="workspace-shell">
@@ -122,9 +109,9 @@
                                 <label class="field">
                                     <span class="field__header">
                                         <span>Work type</span>
-                                        <button type="button" class="field__clear" data-reset-target="workType">Clear</button>
                                     </span>
-                                    <select name="workType" multiple size="3">
+                                    <select name="workType">
+                                        <option value="">Any work type</option>
                                         <option value="1">On-site</option>
                                         <option value="2">Remote</option>
                                         <option value="3">Hybrid</option>
@@ -134,9 +121,9 @@
                                 <label class="field">
                                     <span class="field__header">
                                         <span>Contract type</span>
-                                        <button type="button" class="field__clear" data-reset-target="contractType">Clear</button>
                                     </span>
-                                    <select name="contractType" multiple size="6">
+                                    <select name="contractType">
+                                        <option value="">Any contract</option>
                                         <option value="F">Full-time</option>
                                         <option value="P">Part-time</option>
                                         <option value="C">Contract</option>
@@ -149,9 +136,9 @@
                                 <label class="field">
                                     <span class="field__header">
                                         <span>Experience level</span>
-                                        <button type="button" class="field__clear" data-reset-target="experienceLevel">Clear</button>
                                     </span>
-                                    <select name="experienceLevel" multiple size="5">
+                                    <select name="experienceLevel">
+                                        <option value="">Any experience level</option>
                                         <option value="1">Internship</option>
                                         <option value="2">Entry level</option>
                                         <option value="3">Associate</option>
@@ -168,20 +155,24 @@
                                 <label class="field field--full">
                                     <span class="field__header">
                                         <span>Resume file</span>
-                                        <button type="button" class="field__clear" data-reset-target="resumeFile">Clear</button>
+                                        <button type="button" class="field__clear"
+                                            data-reset-target="resumeFile">Clear</button>
                                     </span>
-                                    <input name="resumeFile" type="file" accept=".pdf,.docx,.txt,.md,.html,.htm,.json,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+                                    <input name="resumeFile" type="file"
+                                        accept=".pdf,.docx,.txt,.md,.html,.htm,.json,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
                                     <span id="resume-file-state" class="field__hint">No file selected</span>
                                 </label>
 
                                 <label class="field">
                                     <span>Min score</span>
-                                    <input name="resumeMatchMinScore" type="number" min="1" max="10" step="0.1" placeholder="7">
+                                    <input name="resumeMatchMinScore" type="number" min="1" max="10" step="0.1"
+                                        placeholder="7">
                                 </label>
 
                                 <label class="field">
                                     <span>Max score</span>
-                                    <input name="resumeMatchMaxScore" type="number" min="1" max="10" step="0.1" placeholder="10">
+                                    <input name="resumeMatchMaxScore" type="number" min="1" max="10" step="0.1"
+                                        placeholder="10">
                                 </label>
 
                                 <label class="field">
@@ -195,14 +186,13 @@
                                 </label>
 
                                 <label class="field field--toggle field--full">
-                                    <span>Hide locally applied jobs</span>
+                                    <span>Hide applied jobs</span>
                                     <input id="hide-applied" type="checkbox" checked>
                                 </label>
 
                                 <div class="actions field--full">
-                                    <button type="submit" id="search-button" class="button button--primary">Search Jobs</button>
-                                    <button type="button" id="previous-page" class="button button--ghost">Previous Page</button>
-                                    <button type="button" id="next-page" class="button button--ghost">Next Page</button>
+                                    <button type="submit" id="search-button" class="button button--primary"
+                                        style="width: 100%;">Search Jobs</button>
                                 </div>
                             </form>
                         </section>
@@ -214,13 +204,31 @@
                                     <p id="results-summary" class="muted">Run a search to load jobs.</p>
                                 </div>
                                 <div class="results-toolbar">
-                                    <button type="button" id="open-visible" class="button button--ghost">Open Visible Jobs</button>
-                                    <button type="button" id="clear-applied" class="button button--ghost">Clear Applied Marks</button>
+                                    <label class="results-sort" for="results-sort">
+                                        <span>Sort</span>
+                                        <select id="results-sort">
+                                            <option value="api">Select Order</option>
+                                            <option value="match-desc">Match score high to low</option>
+                                            <option value="match-asc">Match score low to high</option>
+                                        </select>
+                                    </label>
+                                    <button type="button" id="open-visible" class="button button--ghost">Open Visible
+                                        Jobs</button>
+                                    <button type="button" id="clear-applied" class="button button--ghost">Clear Applied
+                                        Marks</button>
                                 </div>
                             </div>
 
                             <div id="status-banner" class="status-banner" hidden></div>
                             <div id="results-list" class="results-list"></div>
+
+                            <div class="pagination-footer"
+                                style="display: none; padding: 24px 24px 32px; gap: 12px; justify-content: center; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 24px;">
+                                <button type="button" id="previous-page" class="button button--ghost"
+                                    style="min-width: 140px;">← Previous</button>
+                                <button type="button" id="next-page" class="button button--primary"
+                                    style="min-width: 140px;">Next →</button>
+                            </div>
                         </section>
                     </section>
                 </section>
@@ -231,18 +239,24 @@
     <template id="job-card-template">
         <article class="job-card">
             <div class="job-card__top">
-                <div>
-                    <div class="job-card__meta"></div>
-                    <h3 class="job-card__title"></h3>
-                    <div class="job-card__company"></div>
+                <div class="job-card__info">
+                    <img class="job-card__logo" alt="logo" hidden>
+                    <div>
+                        <div class="job-card__meta"></div>
+                        <h3 class="job-card__title"></h3>
+                        <div class="job-card__company"></div>
+                    </div>
                 </div>
                 <div class="job-card__score"></div>
             </div>
 
             <div class="job-card__chips"></div>
-            <p class="job-card__summary"></p>
 
-            <div class="job-card__breakdown"></div>
+            <button type="button" class="job-card__breakdown-toggle" hidden>
+                <span class="job-card__breakdown-toggle-label">Show match details</span>
+                <span class="job-card__breakdown-toggle-icon">▾</span>
+            </button>
+            <div class="job-card__breakdown" hidden></div>
 
             <div class="job-card__actions">
                 <a class="button button--primary job-card__apply" target="_blank" rel="noreferrer">Open job</a>
@@ -253,4 +267,5 @@
 
     <script type="module" src="/app/app.js"></script>
 </body>
+
 </html>

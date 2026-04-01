@@ -1,11 +1,13 @@
 <!doctype html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>ApplyDesk Cloud | Job Alerts</title>
     <link rel="stylesheet" href="/app/styles.css">
 </head>
+
 <body data-page="alerts" data-requires-auth="true">
     <div class="page-shell">
         <header class="app-header">
@@ -36,282 +38,303 @@
         </header>
 
         <main class="site-main">
-            <section class="page-hero">
-                <div class="page-hero__copy">
-                    <p class="section-heading__eyebrow">Alerts</p>
-                    <h1>Save job alerts.</h1>
-                    <p>Reuse a search and get updates.</p>
-                </div>
 
-                <aside class="page-hero__panel">
-                    <article class="dashboard-card dashboard-card--highlight">
-                        <span class="dashboard-card__label">Signed in as</span>
-                        <strong class="dashboard-card__value" data-session-name>ApplyDesk user</strong>
-                        <p data-session-email>Your saved alerts stay attached to your account.</p>
-                    </article>
-                </aside>
-            </section>
-
-            <section data-protected-content>
-                <section class="workspace-shell workspace-shell--alerts">
-                    <div class="workspace-header workspace-header--stacked">
+            <section class="layout layout--alerts">
+                <section class="panel panel--form">
+                    <div class="panel__header">
                         <div>
-                            <p class="section-heading__eyebrow">Alerts</p>
-                            <h2>Create and manage alerts.</h2>
-                            <p>Save schedules from one search.</p>
+                            <h2>Create alert</h2>
+                            <p class="muted">Name it, set filters, add a schedule.</p>
                         </div>
-
-                        <div class="workspace-badges">
-                            <span>Schedules</span>
-                            <span>Profiles</span>
-                            <span>Test email</span>
-                            <span>Saved alerts</span>
-                        </div>
+                        <button type="button" id="reset-filters" class="button button--ghost">Reset</button>
                     </div>
 
-                    <div class="workspace-stats">
-                        <article class="stat-card">
-                            <span class="stat-card__label">Schedules</span>
-                            <strong class="stat-card__value">Save more than one</strong>
-                            <p>Use multiple schedules for one search.</p>
-                        </article>
-
-                        <article class="stat-card">
-                            <span class="stat-card__label">Workflow</span>
-                            <strong class="stat-card__value">Test, then save</strong>
-                            <p>Check the email before saving.</p>
-                        </article>
-
-                        <article class="stat-card">
-                            <span class="stat-card__label">Benefit</span>
-                            <strong class="stat-card__value">Stay updated</strong>
-                            <p>Let new roles come to you.</p>
-                        </article>
-                    </div>
-
-                    <section class="layout layout--alerts">
-                        <section class="panel panel--form">
-                            <div class="panel__header">
+                    <form id="search-form" class="form-grid">
+                        <section class="section-card field--full">
+                            <div class="section-card__header">
                                 <div>
-                                    <h2>Create alert</h2>
-                                    <p class="muted">Name it, set filters, add a schedule.</p>
+                                    <h3>Alert</h3>
+                                    <p>Name and delivery email.</p>
                                 </div>
-                                <button type="button" id="reset-filters" class="button button--ghost">Reset</button>
                             </div>
 
-                            <form id="search-form" class="form-grid">
-                                <section class="section-card field--full">
-                                    <div class="section-card__header">
-                                        <div>
-                                            <h3>Alert</h3>
-                                            <p>Name and delivery email.</p>
-                                        </div>
+                            <div class="section-card__grid">
+                                <label class="field">
+                                    <span>Alert name</span>
+                                    <input name="alertName" type="text" placeholder="Bengaluru PM - mornings">
+                                </label>
+
+                                <label class="field">
+                                    <span>Email for alerts</span>
+                                    <input name="deliveryEmail" type="email" placeholder="you@example.com">
+                                </label>
+                            </div>
+                        </section>
+
+                        <section class="section-card field--full">
+                            <div class="section-card__header">
+                                <div>
+                                    <h3>Search</h3>
+                                    <p>Reuse these filters for each run.</p>
+                                </div>
+                            </div>
+
+                            <div class="section-card__grid">
+                                <label class="field field--full">
+                                    <span>Job title</span>
+                                    <input name="title" type="text" placeholder="Product Manager">
+                                </label>
+
+                                <label class="field">
+                                    <span>Location</span>
+                                    <input name="location" type="text" placeholder="Bengaluru">
+                                </label>
+
+                                <label class="field">
+                                    <span>Jobs per alert</span>
+                                    <input name="rows" type="number" min="1" max="1000" value="10">
+                                </label>
+
+                                <label class="field">
+                                    <span>Page number</span>
+                                    <input name="pageNumber" type="number" min="1" max="1000" value="1">
+                                </label>
+
+                                <label class="field">
+                                    <span>Posted within</span>
+                                    <select name="publishedAt">
+                                        <option value="">Any time</option>
+                                        <option value="r86400">Past 24 hours</option>
+                                        <option value="r604800">Past week</option>
+                                        <option value="r2592000">Past month</option>
+                                    </select>
+                                </label>
+
+                                <label class="field">
+                                    <span>Company names</span>
+                                    <input name="companyName" type="text" placeholder="Google, Microsoft">
+                                </label>
+
+                                <label class="field">
+                                    <span>Company IDs</span>
+                                    <input name="companyId" type="text" placeholder="76987811, 1815218">
+                                </label>
+
+                                <label class="field">
+                                    <span>Work type</span>
+                                    <select name="workType">
+                                        <option value="">Any work type</option>
+                                        <option value="1">On-site</option>
+                                        <option value="2">Remote</option>
+                                        <option value="3">Hybrid</option>
+                                    </select>
+                                </label>
+
+                                <label class="field">
+                                    <span>Contract type</span>
+                                    <select name="contractType">
+                                        <option value="">Any contract</option>
+                                        <option value="F">Full-time</option>
+                                        <option value="P">Part-time</option>
+                                        <option value="C">Contract</option>
+                                        <option value="T">Temporary</option>
+                                        <option value="V">Volunteer</option>
+                                        <option value="I">Internship</option>
+                                    </select>
+                                </label>
+
+                                <label class="field">
+                                    <span>Experience level</span>
+                                    <select name="experienceLevel">
+                                        <option value="">Any experience level</option>
+                                        <option value="1">Internship</option>
+                                        <option value="2">Entry level</option>
+                                        <option value="3">Associate</option>
+                                        <option value="4">Mid-Senior level</option>
+                                        <option value="5">Director</option>
+                                    </select>
+                                </label>
+                            </div>
+                        </section>
+
+                        <section class="section-card field--full">
+                            <div class="section-card__header">
+                                <div>
+                                    <h3>Resume match</h3>
+                                    <p>Add a resume and score range.</p>
+                                </div>
+                            </div>
+
+                            <div class="section-card__grid">
+                                <label class="field field--full">
+                                    <span>Resume URL</span>
+                                    <input name="resumeUrl" type="url" placeholder="https://example.com/resume.pdf">
+                                </label>
+
+                                <label class="field field--full">
+                                    <span class="field__header">
+                                        <span>Resume file</span>
+                                        <button type="button" class="field__clear"
+                                            data-reset-target="resumeFile">Clear</button>
+                                    </span>
+                                    <input name="resumeFile" type="file"
+                                        accept=".pdf,.docx,.txt,.md,.html,.htm,.json,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+                                    <span id="resume-file-state" class="field__hint">No file selected</span>
+                                </label>
+
+                                <label class="field">
+                                    <span>Min score</span>
+                                    <input name="resumeMatchMinScore" type="number" min="1" max="10" step="0.1"
+                                        placeholder="7">
+                                </label>
+
+                                <label class="field">
+                                    <span>Max score</span>
+                                    <input name="resumeMatchMaxScore" type="number" min="1" max="10" step="0.1"
+                                        placeholder="10">
+                                </label>
+
+                                <label class="field">
+                                    <span>Search delay ms</span>
+                                    <input name="requestDelayMs" type="number" min="0" max="10000" value="600">
+                                </label>
+
+                                <label class="field">
+                                    <span>Detail loading</span>
+                                    <input name="detailConcurrency" type="number" min="1" max="10" value="3">
+                                </label>
+                            </div>
+                        </section>
+
+                        <section class="section-card field--full">
+                            <div class="section-card__header">
+                                <div>
+                                    <h3>Schedule</h3>
+                                    <p>One line per saved alert.</p>
+                                </div>
+                            </div>
+
+                            <div class="section-card__grid">
+                                <!-- Visual Cron Builder -->
+                                <div class="cron-builder field--full">
+                                    <span class="cron-builder__label">Build a schedule</span>
+
+                                    <div class="cron-mode-tabs">
+                                        <button type="button" class="cron-tab cron-tab--active"
+                                            data-mode="interval">Interval</button>
+                                        <button type="button" class="cron-tab" data-mode="daily">Set Time</button>
                                     </div>
 
-                                    <div class="section-card__grid">
-                                        <label class="field">
-                                            <span>Alert name</span>
-                                            <input name="alertName" type="text" placeholder="Bengaluru PM - mornings">
-                                        </label>
-
-                                        <label class="field">
-                                            <span>Email for alerts</span>
-                                            <input name="deliveryEmail" type="email" placeholder="you@example.com">
-                                        </label>
-                                    </div>
-                                </section>
-
-                                <section class="section-card field--full">
-                                    <div class="section-card__header">
-                                        <div>
-                                            <h3>Search</h3>
-                                            <p>Reuse these filters for each run.</p>
-                                        </div>
-                                    </div>
-
-                                    <div class="section-card__grid">
-                                        <label class="field field--full">
-                                            <span>Job title</span>
-                                            <input name="title" type="text" placeholder="Product Manager">
-                                        </label>
-
-                                        <label class="field">
-                                            <span>Location</span>
-                                            <input name="location" type="text" placeholder="Bengaluru">
-                                        </label>
-
-                                        <label class="field">
-                                            <span>Jobs per alert</span>
-                                            <input name="rows" type="number" min="1" max="1000" value="10">
-                                        </label>
-
-                                        <label class="field">
-                                            <span>Page number</span>
-                                            <input name="pageNumber" type="number" min="1" max="1000" value="1">
-                                        </label>
-
-                                        <label class="field">
-                                            <span>Posted within</span>
-                                            <select name="publishedAt">
-                                                <option value="">Any time</option>
-                                                <option value="r86400">Past 24 hours</option>
-                                                <option value="r604800">Past week</option>
-                                                <option value="r2592000">Past month</option>
+                                    <!-- Interval Mode -->
+                                    <div class="cron-panel" id="cron-panel-interval">
+                                        <div class="cron-row">
+                                            <span class="cron-row__label">Every</span>
+                                            <input type="number" id="cron-interval-value" class="cron-input" min="1"
+                                                max="59" value="30" placeholder="30">
+                                            <select id="cron-interval-unit" class="cron-select">
+                                                <option value="minutes">minutes</option>
+                                                <option value="hours">hours</option>
                                             </select>
-                                        </label>
-
-                                        <label class="field">
-                                            <span>Company names</span>
-                                            <input name="companyName" type="text" placeholder="Google, Microsoft">
-                                        </label>
-
-                                        <label class="field">
-                                            <span>Company IDs</span>
-                                            <input name="companyId" type="text" placeholder="76987811, 1815218">
-                                        </label>
-
-                                        <label class="field">
-                                            <span class="field__header">
-                                                <span>Work type</span>
-                                                <button type="button" class="field__clear" data-reset-target="workType">Clear</button>
-                                            </span>
-                                            <select name="workType" multiple size="3">
-                                                <option value="1">On-site</option>
-                                                <option value="2">Remote</option>
-                                                <option value="3">Hybrid</option>
-                                            </select>
-                                        </label>
-
-                                        <label class="field">
-                                            <span class="field__header">
-                                                <span>Contract type</span>
-                                                <button type="button" class="field__clear" data-reset-target="contractType">Clear</button>
-                                            </span>
-                                            <select name="contractType" multiple size="6">
-                                                <option value="F">Full-time</option>
-                                                <option value="P">Part-time</option>
-                                                <option value="C">Contract</option>
-                                                <option value="T">Temporary</option>
-                                                <option value="V">Volunteer</option>
-                                                <option value="I">Internship</option>
-                                            </select>
-                                        </label>
-
-                                        <label class="field">
-                                            <span class="field__header">
-                                                <span>Experience level</span>
-                                                <button type="button" class="field__clear" data-reset-target="experienceLevel">Clear</button>
-                                            </span>
-                                            <select name="experienceLevel" multiple size="5">
-                                                <option value="1">Internship</option>
-                                                <option value="2">Entry level</option>
-                                                <option value="3">Associate</option>
-                                                <option value="4">Mid-Senior level</option>
-                                                <option value="5">Director</option>
-                                            </select>
-                                        </label>
-                                    </div>
-                                </section>
-
-                                <section class="section-card field--full">
-                                    <div class="section-card__header">
-                                        <div>
-                                            <h3>Resume match</h3>
-                                            <p>Add a resume and score range.</p>
                                         </div>
+                                        <button type="button" id="cron-add-interval"
+                                            class="button button--ghost button--small">+ Add to schedule</button>
                                     </div>
 
-                                    <div class="section-card__grid">
-                                        <label class="field field--full">
-                                            <span>Resume URL</span>
-                                            <input name="resumeUrl" type="url" placeholder="https://example.com/resume.pdf">
-                                        </label>
-
-                                        <label class="field field--full">
-                                            <span class="field__header">
-                                                <span>Resume file</span>
-                                                <button type="button" class="field__clear" data-reset-target="resumeFile">Clear</button>
-                                            </span>
-                                            <input name="resumeFile" type="file" accept=".pdf,.docx,.txt,.md,.html,.htm,.json,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
-                                            <span id="resume-file-state" class="field__hint">No file selected</span>
-                                        </label>
-
-                                        <label class="field">
-                                            <span>Min score</span>
-                                            <input name="resumeMatchMinScore" type="number" min="1" max="10" step="0.1" placeholder="7">
-                                        </label>
-
-                                        <label class="field">
-                                            <span>Max score</span>
-                                            <input name="resumeMatchMaxScore" type="number" min="1" max="10" step="0.1" placeholder="10">
-                                        </label>
-
-                                        <label class="field">
-                                            <span>Search delay ms</span>
-                                            <input name="requestDelayMs" type="number" min="0" max="10000" value="600">
-                                        </label>
-
-                                        <label class="field">
-                                            <span>Detail loading</span>
-                                            <input name="detailConcurrency" type="number" min="1" max="10" value="3">
-                                        </label>
-                                    </div>
-                                </section>
-
-                                <section class="section-card field--full">
-                                    <div class="section-card__header">
-                                        <div>
-                                            <h3>Schedule</h3>
-                                            <p>One line per saved alert.</p>
+                                    <!-- Daily Mode -->
+                                    <div class="cron-panel" id="cron-panel-daily" hidden>
+                                        <div class="cron-row">
+                                            <span class="cron-row__label">At</span>
+                                            <select id="cron-hour" class="cron-select">
+                                                <option value="1">1</option>
+                                                <option value="2">2</option>
+                                                <option value="3">3</option>
+                                                <option value="4">4</option>
+                                                <option value="5">5</option>
+                                                <option value="6">6</option>
+                                                <option value="7">7</option>
+                                                <option value="8">8</option>
+                                                <option value="9" selected>9</option>
+                                                <option value="10">10</option>
+                                                <option value="11">11</option>
+                                                <option value="12">12</option>
+                                            </select>
+                                            <span class="cron-row__sep">:</span>
+                                            <select id="cron-minute" class="cron-select">
+                                                <option value="0" selected>00</option>
+                                                <option value="15">15</option>
+                                                <option value="30">30</option>
+                                                <option value="45">45</option>
+                                            </select>
+                                            <select id="cron-ampm" class="cron-select">
+                                                <option value="AM" selected>AM</option>
+                                                <option value="PM">PM</option>
+                                            </select>
                                         </div>
-                                    </div>
-
-                                    <div class="section-card__grid">
-                                        <div class="field field--full">
-                                            <span>Quick presets</span>
-                                            <div class="preset-row">
-                                                <button type="button" class="button button--ghost button--small" data-cron-value="0 * * * *">Hourly</button>
-                                                <button type="button" class="button button--ghost button--small" data-cron-value="*/15 * * * *">Every 15 min</button>
-                                                <button type="button" class="button button--ghost button--small" data-cron-value="0 */6 * * *">Every 6 hours</button>
-                                                <button type="button" class="button button--ghost button--small" data-cron-value="0 9 * * *">Daily 9:00</button>
+                                        <div class="cron-days">
+                                            <span class="cron-row__label">On</span>
+                                            <div class="cron-day-chips">
+                                                <label class="day-chip"><input type="checkbox" value="1"
+                                                        checked><span>Mon</span></label>
+                                                <label class="day-chip"><input type="checkbox" value="2"
+                                                        checked><span>Tue</span></label>
+                                                <label class="day-chip"><input type="checkbox" value="3"
+                                                        checked><span>Wed</span></label>
+                                                <label class="day-chip"><input type="checkbox" value="4"
+                                                        checked><span>Thu</span></label>
+                                                <label class="day-chip"><input type="checkbox" value="5"
+                                                        checked><span>Fri</span></label>
+                                                <label class="day-chip"><input type="checkbox"
+                                                        value="6"><span>Sat</span></label>
+                                                <label class="day-chip"><input type="checkbox"
+                                                        value="0"><span>Sun</span></label>
                                             </div>
                                         </div>
-
-                                        <label class="field field--full">
-                                            <span>Schedules</span>
-                                            <textarea name="cronExpression" rows="5" placeholder="0 * * * *&#10;0 18 * * 1-5"></textarea>
-                                            <span class="field__hint">Each line creates a separate alert. Duplicate lines are ignored.</span>
-                                        </label>
-
-                                        <div class="actions field--full">
-                                            <button type="button" id="send-email-now" class="button button--ghost">Send Test Email</button>
-                                            <button type="button" id="save-email-alert" class="button button--primary">Save Alerts</button>
-                                            <button type="button" id="refresh-alerts" class="button button--ghost">Refresh Alerts</button>
-                                        </div>
+                                        <button type="button" id="cron-add-daily"
+                                            class="button button--ghost button--small">+ Add to schedule</button>
                                     </div>
-                                </section>
-                            </form>
-                        </section>
+                                </div>
 
-                        <section class="panel panel--results">
-                            <div class="panel__header panel__header--compact">
-                                <div>
-                                    <h2>Saved alerts</h2>
-                                    <p id="alerts-summary" class="muted">View and manage saved alerts.</p>
+                                <label class="field field--full">
+                                    <span>Schedules</span>
+                                    <textarea name="cronExpression" rows="4"
+                                        placeholder="0 * * * *&#10;0 18 * * 1-5"></textarea>
+                                    <span class="field__hint">Each line is a separate alert. Duplicate lines are
+                                        ignored.</span>
+                                </label>
+
+                                <div class="actions field--full">
+                                    <button type="button" id="send-email-now" class="button button--ghost">Send Test
+                                        Email</button>
+                                    <button type="button" id="save-email-alert" class="button button--primary">Save
+                                        Alerts</button>
+                                    <button type="button" id="refresh-alerts" class="button button--ghost">Refresh
+                                        Alerts</button>
                                 </div>
                             </div>
-
-                            <div id="status-banner" class="status-banner" hidden></div>
-                            <div id="alerts-list" class="alerts-list">
-                                <div class="empty-state">No email alerts saved yet.</div>
-                            </div>
                         </section>
-                    </section>
+                    </form>
                 </section>
+
+                <section class="panel panel--results">
+                    <div class="panel__header panel__header--compact">
+                        <div>
+                            <h2>Saved alerts</h2>
+                            <p id="alerts-summary" class="muted">View and manage saved alerts.</p>
+                        </div>
+                    </div>
+
+                    <div id="status-banner" class="status-banner" hidden></div>
+                    <div id="alerts-list" class="alerts-list">
+                        <div class="empty-state">No email alerts saved yet.</div>
+                    </div>
+                </section>
+            </section>
+            </section>
             </section>
         </main>
     </div>
 
     <script type="module" src="/app/app.js"></script>
 </body>
+
 </html>

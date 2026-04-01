@@ -146,6 +146,7 @@ export function createApiServer(options = {}) {
     const jobsService = options.jobsService ?? createJobsService({
         logger: serviceLogger,
         runRepository,
+        userRepository,
     });
     const jobsDeliveryService = options.jobsDeliveryService ?? createJobsDeliveryService({
         jobsService,
@@ -419,7 +420,11 @@ export function createApiServer(options = {}) {
     server.post('/v1/jobs/search', { preHandler: requirePermission('jobs:run') }, async (request, reply) => {
         try {
             await ensureInitialized();
-            const result = await jobsService.search(await parseJobsSearchRequest(request));
+            const searchInput = await parseJobsSearchRequest(request);
+            const result = await jobsService.search(searchInput, {
+                identity: request.identity,
+                includeApplied: searchInput.includeApplied,
+            });
             const payload = {
                 count: result.items.length,
                 items: result.items,
@@ -441,6 +446,72 @@ export function createApiServer(options = {}) {
             replyWithError(reply, Object.assign(error, {
                 statusCode: error.statusCode ?? 502,
                 code: error.code ?? 'scrape_failed',
+            }));
+        }
+    });
+
+    server.get('/v1/jobs/applied', { preHandler: requirePermission('jobs:read') }, async (request, reply) => {
+        try {
+            await ensureInitialized();
+            reply.send(await jobsService.listAppliedJobs({
+                identity: request.identity,
+            }));
+        } catch (error) {
+            replyWithError(reply, Object.assign(error, {
+                statusCode: error.statusCode ?? 500,
+                code: error.code ?? 'applied_jobs_read_failed',
+            }));
+        }
+    });
+
+    server.post('/v1/jobs/applied', { preHandler: requirePermission('jobs:run') }, async (request, reply) => {
+        try {
+            await ensureInitialized();
+            const item = await jobsService.markAppliedJob(request.body?.jobId, {
+                identity: request.identity,
+            });
+            reply.code(201).send({
+                item,
+            });
+        } catch (error) {
+            replyWithError(reply, Object.assign(error, {
+                statusCode: error.statusCode ?? 500,
+                code: error.code ?? 'applied_job_mark_failed',
+            }));
+        }
+    });
+
+    server.delete('/v1/jobs/applied/:jobId', { preHandler: requirePermission('jobs:run') }, async (request, reply) => {
+        try {
+            await ensureInitialized();
+            await jobsService.unmarkAppliedJob(request.params.jobId, {
+                identity: request.identity,
+            });
+            reply.send({
+                removed: true,
+                jobId: request.params.jobId,
+            });
+        } catch (error) {
+            replyWithError(reply, Object.assign(error, {
+                statusCode: error.statusCode ?? 500,
+                code: error.code ?? 'applied_job_unmark_failed',
+            }));
+        }
+    });
+
+    server.delete('/v1/jobs/applied', { preHandler: requirePermission('jobs:run') }, async (request, reply) => {
+        try {
+            await ensureInitialized();
+            await jobsService.clearAppliedJobs({
+                identity: request.identity,
+            });
+            reply.send({
+                cleared: true,
+            });
+        } catch (error) {
+            replyWithError(reply, Object.assign(error, {
+                statusCode: error.statusCode ?? 500,
+                code: error.code ?? 'applied_jobs_clear_failed',
             }));
         }
     });

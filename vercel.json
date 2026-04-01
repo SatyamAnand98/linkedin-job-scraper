@@ -1,6 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
+  "functions": {
+    "api/*.js": {
+      "includeFiles": "src/**"
+    }
+  },
   "crons": [
     {
       "path": "/v1/jobs/alerts/process",

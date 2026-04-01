@@ -1,20 +1,171 @@
 <!doctype html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ApplyDesk Cloud | Minimal Job Search Workspace</title>
+    <title>ApplyDesk Cloud | Elevate Your Career</title>
     <link rel="stylesheet" href="/app/styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <style>
+        /* Extreme Premium Overrides */
+        :root {
+            --glow-primary: rgba(59, 130, 246, 0.4);
+            --glow-accent: rgba(139, 92, 246, 0.4);
+        }
+
+        body[data-page="home"] {
+            background-color: #020617;
+            background-image:
+                radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.08) 0%, transparent 50%);
+            background-attachment: fixed;
+            overflow-x: hidden;
+        }
+
+        .gsap-reveal {
+            visibility: hidden;
+        }
+
+        .hero--landing {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 80px 20px 40px;
+            overflow: visible;
+        }
+
+        .hero__grid--landing {
+            gap: 60px;
+            align-items: center;
+        }
+
+        .premium-headline {
+            font-size: clamp(3.2rem, 6vw, 5rem);
+            line-height: 1.05;
+            letter-spacing: -0.03em;
+            background: linear-gradient(to right, #ffffff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 24px;
+        }
+
+        .dynamic-orb {
+            position: absolute;
+            top: -20%;
+            right: -10%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--glow-primary) 0%, transparent 70%);
+            border-radius: 50%;
+            filter: blur(60px);
+            z-index: -1;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        .landing-preview__main {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(28px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+            transform: perspective(1000px) rotateY(-5deg) translateY(0);
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .landing-preview__main:hover {
+            transform: perspective(1000px) rotateY(0deg) translateY(-10px);
+        }
+
+        .journey-card {
+            background: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: transform 0.3s ease, background 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .journey-card:hover {
+            transform: translateY(-8px);
+            background: rgba(15, 23, 42, 0.8);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .journey-asset {
+            width: 100%;
+            height: 160px;
+            margin-top: 24px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .journey-asset::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: radial-gradient(circle at 50% 120%, rgba(255, 255, 255, 0.1), transparent 70%);
+        }
+
+        .asset-icon {
+            width: 48px;
+            height: 48px;
+            opacity: 0.6;
+            color: #fff;
+        }
+
+        .hero__container {
+            position: relative;
+        }
+
+        @media screen and (max-width: 1024px) {
+            .hero__grid--landing {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+
+            .landing-preview__main {
+                transform: none;
+            }
+
+            .landing-preview__main:hover {
+                transform: translateY(-5px);
+            }
+
+            .hero--landing {
+                padding: 40px 16px 20px;
+            }
+
+            .premium-headline {
+                font-size: 2.8rem !important;
+            }
+
+            .dynamic-orb {
+                width: 300px;
+                height: 300px;
+                top: 0;
+                right: 0;
+            }
+        }
+    </style>
 </head>
+
 <body data-page="home">
     <div class="page-shell" id="top">
-        <header class="app-header">
+        <header class="app-header gsap-reveal">
             <div class="topbar">
                 <a class="brand" href="/">
                     <span class="brand__mark">AD</span>
                     <span class="brand__text">
                         <strong>ApplyDesk Cloud</strong>
-                        <span>Job search, simplified</span>
+                        <span>Next-Gen Job Tracking</span>
                     </span>
                 </a>
 
@@ -26,64 +177,80 @@
                 </nav>
 
                 <div class="topbar__actions">
-                    <span class="session-user" data-session-email>Email OTP login</span>
-                    <a class="button button--primary" data-guest-only href="/login">Log In</a>
+                    <span class="session-user" data-session-email>Guest Session</span>
+                    <a class="button button--primary" data-guest-only href="/login">Auth Access</a>
                     <a class="button button--primary" data-auth-only hidden href="/app/account">Dashboard</a>
-                    <button type="button" class="button button--ghost" data-signout hidden>Log Out</button>
+                    <button type="button" class="button button--ghost" data-signout hidden>Disconnect</button>
                 </div>
             </div>
         </header>
 
         <main class="site-main site-main--landing">
-            <section class="hero hero--landing">
+            <section class="hero hero--landing hero__container gsap-reveal">
+                <div class="dynamic-orb parallax-element" data-speed="0.8"></div>
+                <div class="dynamic-orb parallax-element" data-speed="1.2"
+                    style="background: var(--glow-accent); top: auto; bottom: -10%; left: -5%;"></div>
+
                 <div class="hero__grid hero__grid--landing">
                     <div class="hero__copy hero__copy--landing">
-                        <div class="hero__eyebrow">Simple job search</div>
-                        <h1>Search jobs in one place.</h1>
-                        <p>Log in, search, check fit, and save alerts.</p>
+                        <div class="hero__eyebrow">Enterprise Grade Engine</div>
+                        <h1 class="premium-headline">Command your career trajectory.</h1>
+                        <p
+                            style="font-size: 1.15rem; color: var(--text-muted); line-height: 1.6; max-width: 500px; margin-bottom: 32px;">
+                            Experience the ultimate frictionless job search standard. Seamlessly interface with
+                            automated role matching, zero-delay filtration, and sub-second cron capabilities.
+                        </p>
 
-                        <div class="hero__actions">
-                            <a class="button button--primary" data-guest-only href="/login">Log In</a>
-                            <a class="button button--primary" data-auth-only hidden href="/app/account">Dashboard</a>
-                            <a class="button button--ghost" data-auth-only hidden href="/app/search">Search</a>
+                        <div class="hero__actions" style="margin-bottom: 40px;">
+                            <a class="button button--primary" data-guest-only href="/login"
+                                style="padding: 16px 32px; font-size: 1.05rem;">Initialize Session</a>
+                            <a class="button button--primary" data-auth-only hidden href="/app/account"
+                                style="padding: 16px 32px; font-size: 1.05rem;">Launch Dashboard</a>
+                            <a class="button button--ghost" data-auth-only hidden href="/app/search"
+                                style="padding: 16px 32px; font-size: 1.05rem;">Query Engine</a>
                         </div>
 
-                        <div class="hero__proof">
-                            <span>OTP login</span>
-                            <span>Resume fit</span>
-                            <span>Saved alerts</span>
+                        <div class="hero__proof" style="opacity: 0.7;">
+                            <span>Passwordless Authentication</span>
+                            <span
+                                style="border-left: 1px solid rgba(255,255,255,0.1); border-right: 1px solid rgba(255,255,255,0.1); padding: 0 16px;">Resume
+                                Vectorization</span>
+                            <span>Granular Cron Schedules</span>
                         </div>
                     </div>
 
-                    <aside class="landing-preview">
+                    <aside class="landing-preview parallax-element" data-speed="0.95">
                         <article class="landing-preview__main">
                             <div class="landing-preview__header">
-                                <p class="landing-preview__label">Flow</p>
-                                <strong>One login flow</strong>
+                                <p class="landing-preview__label" style="color: var(--primary);">Architecture</p>
+                                <strong style="font-size: 1.3rem;">Sub-Second Workflow</strong>
                             </div>
 
                             <div class="landing-preview__steps">
                                 <div class="preview-step">
                                     <span class="preview-step__index">01</span>
                                     <div>
-                                        <strong>Log in</strong>
-                                        <p>OTP works for new and returning users.</p>
+                                        <strong style="color: #fff;">Access Vector</strong>
+                                        <p style="color: var(--text-muted);">Secure OTP handshake protocol eliminates
+                                            password bloat.</p>
                                     </div>
                                 </div>
 
                                 <div class="preview-step">
                                     <span class="preview-step__index">02</span>
                                     <div>
-                                        <strong>Search</strong>
-                                        <p>Filter roles fast.</p>
+                                        <strong style="color: #fff;">Query Synthesizer</strong>
+                                        <p style="color: var(--text-muted);">Dynamic filtration and boolean search
+                                            scaling instantly.</p>
                                     </div>
                                 </div>
 
                                 <div class="preview-step">
                                     <span class="preview-step__index">03</span>
                                     <div>
-                                        <strong>Save alerts</strong>
-                                        <p>Reuse a good search.</p>
+                                        <strong style="color: #fff;">Delivery Dispatch</strong>
+                                        <p style="color: var(--text-muted);">Persistent saved alerts intelligently
+                                            shipped straight to inbox.</p>
                                     </div>
                                 </div>
                             </div>
@@ -92,38 +259,65 @@
                 </div>
             </section>
 
-            <section class="landing-strip">
-                <div class="landing-strip__intro">
-                    <p class="section-heading__eyebrow">Core</p>
-                    <h2>Three simple actions.</h2>
+            <section class="landing-strip gsap-reveal" style="margin-top: 80px;">
+                <div class="landing-strip__intro" style="text-align: center; margin-bottom: 60px;">
+                    <p class="section-heading__eyebrow">Framework</p>
+                    <h2 style="font-size: 2.5rem; color: #fff;">Three pillars of efficiency.</h2>
                 </div>
 
                 <div class="landing-strip__grid">
                     <article class="journey-card">
-                        <span class="journey-card__step">Access</span>
-                        <h3>One login flow</h3>
-                        <p>No separate signup.</p>
+                        <span class="journey-card__step"
+                            style="background: var(--glow-primary); color: #fff; padding: 4px 12px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Access</span>
+                        <h3 style="margin-top: 20px; font-size: 1.5rem; color: #fff;">Unified Auth</h3>
+                        <p style="color: var(--text-muted); line-height: 1.6;">No bloated signups. Just enter an email,
+                            authorize OTP securely, and interface directly with the local dashboard.</p>
+
+                        <div class="journey-asset">
+                            <svg class="asset-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                        </div>
                     </article>
 
                     <article class="journey-card">
-                        <span class="journey-card__step">Search</span>
-                        <h3>Search</h3>
-                        <p>Search and check fit.</p>
+                        <span class="journey-card__step"
+                            style="background: rgba(20, 184, 166, 0.2); color: var(--teal); padding: 4px 12px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Discovery</span>
+                        <h3 style="margin-top: 20px; font-size: 1.5rem; color: #fff;">Precise Search</h3>
+                        <p style="color: var(--text-muted); line-height: 1.6;">Feed precise parameters into the unified
+                            algorithm and compute exact matching correlations via smart scoring.</p>
+
+                        <div class="journey-asset">
+                            <svg class="asset-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </div>
                     </article>
 
                     <article class="journey-card">
-                        <span class="journey-card__step">Alerts</span>
-                        <h3>Alerts</h3>
-                        <p>Save and rerun searches.</p>
+                        <span class="journey-card__step"
+                            style="background: var(--glow-accent); color: #c4b5fd; padding: 4px 12px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Persistence</span>
+                        <h3 style="margin-top: 20px; font-size: 1.5rem; color: #fff;">Alert Daemon</h3>
+                        <p style="color: var(--text-muted); line-height: 1.6;">Configure granular cron schedules. Log
+                            out entirely, and let massive scaled engines systematically push to you.</p>
+
+                        <div class="journey-asset">
+                            <svg class="asset-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
                     </article>
                 </div>
             </section>
         </main>
 
-        <footer class="site-footer">
+        <footer class="site-footer gsap-reveal" style="margin-top: 100px;">
             <div class="site-footer__brand">
-                <strong>ApplyDesk Cloud</strong>
-                <p>Search, score, alert.</p>
+                <strong style="color: #fff; font-size: 1.3rem;">ApplyDesk Cloud</strong>
+                <p style="font-size: 1rem;">Execute. Automate. Acquire.</p>
             </div>
 
             <nav class="site-footer__nav" aria-label="Footer">
@@ -132,12 +326,57 @@
                 <a href="/app/search">Search</a>
                 <a href="/app/alerts">Alerts</a>
                 <a href="/terms">Terms &amp; Conditions</a>
-                <a href="/contact">Contact Us</a>
-                <a href="/login" data-guest-only>Log In</a>
+                <a href="/contact">Contact</a>
+                <a href="/login" data-guest-only>Auth Access</a>
             </nav>
         </footer>
     </div>
 
     <script type="module" src="/app/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            gsap.registerPlugin(ScrollTrigger);
+
+            // 1. Initial Hero Staggering Sequence
+            gsap.fromTo('.gsap-reveal',
+                { y: 40, autoAlpha: 0 },
+                { y: 0, autoAlpha: 1, duration: 1, stagger: 0.2, ease: 'power3.out' }
+            );
+
+            // 2. Journey Cards Staggered Scroll
+            gsap.fromTo('.journey-card',
+                { opacity: 0, scale: 0.95, y: 30 },
+                {
+                    opacity: 1,
+                    scale: 1,
+                    y: 0,
+                    duration: 0.8,
+                    stagger: 0.15,
+                    ease: 'power2.out',
+                    scrollTrigger: {
+                        trigger: '.landing-strip__grid',
+                        start: 'top 85%'
+                    }
+                }
+            );
+
+            // 3. Parallax Elements (Orbs and Architecture Box)
+            document.querySelectorAll('.parallax-element').forEach(el => {
+                const speed = parseFloat(el.getAttribute('data-speed') || '1');
+                gsap.to(el, {
+                    y: () => (ScrollTrigger.maxScroll(window) - (ScrollTrigger.maxScroll(window) * speed)) * 0.15,
+                    ease: 'none',
+                    scrollTrigger: {
+                        trigger: '#top',
+                        start: 'top top',
+                        end: 'bottom top',
+                        scrub: true,
+                        invalidateOnRefresh: true
+                    }
+                });
+            });
+        });
+    </script>
 </body>
+
 </html>
