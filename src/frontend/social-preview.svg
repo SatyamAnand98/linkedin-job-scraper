@@ -10,44 +10,49 @@
   <text x="214" y="133" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="700">ApplyDesk Cloud</text>
   <text x="214" y="171" fill="#94A3B8" font-family="Arial, Helvetica, sans-serif" font-size="23">Resume-aware job search and alerts</text>
 
-  <rect x="96" y="210" width="194" height="34" rx="17" fill="#0F172A" stroke="#1E3A5F"/>
-  <text x="122" y="233" fill="#60A5FA" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">SIGNATURE FEATURE</text>
+  <rect x="96" y="212" width="194" height="34" rx="17" fill="#0F172A" stroke="#1E3A5F"/>
+  <text x="122" y="235" fill="#60A5FA" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">SIGNATURE FEATURE</text>
 
-  <text x="96" y="292" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="700">Search jobs that</text>
-  <text x="96" y="360" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="700">actually match</text>
-  <text x="96" y="428" fill="#60A5FA" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="700">your resume</text>
+  <text x="96" y="292" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="54" font-weight="700">Search jobs</text>
+  <text x="96" y="356" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="54" font-weight="700">that match</text>
+  <text x="96" y="420" fill="#60A5FA" font-family="Arial, Helvetica, sans-serif" font-size="54" font-weight="700">your resume</text>
 
-  <text x="96" y="476" fill="#CBD5E1" font-family="Arial, Helvetica, sans-serif" font-size="24">Upload your resume once, score every role for fit, and focus on</text>
-  <text x="96" y="510" fill="#CBD5E1" font-family="Arial, Helvetica, sans-serif" font-size="24">the strongest jobs instead of mass applying.</text>
+  <text x="96" y="474" fill="#CBD5E1" font-family="Arial, Helvetica, sans-serif" font-size="24">Upload once. Score every role for fit.</text>
+  <text x="96" y="508" fill="#CBD5E1" font-family="Arial, Helvetica, sans-serif" font-size="24">Focus on strong-match jobs first.</text>
 
-  <rect x="96" y="524" width="196" height="42" rx="21" fill="#0F172A" stroke="#334155"/>
-  <text x="124" y="551" fill="#E2E8F0" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">Resume ranking</text>
-  <rect x="308" y="524" width="176" height="42" rx="21" fill="#0F172A" stroke="#334155"/>
-  <text x="336" y="551" fill="#E2E8F0" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">ATS fit score</text>
-  <rect x="500" y="524" width="186" height="42" rx="21" fill="#0F172A" stroke="#334155"/>
-  <text x="528" y="551" fill="#E2E8F0" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">Focused alerts</text>
+  <rect x="96" y="526" width="176" height="40" rx="20" fill="#0F172A" stroke="#334155"/>
+  <text x="122" y="551" fill="#E2E8F0" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">Resume ranking</text>
+  <rect x="286" y="526" width="154" height="40" rx="20" fill="#0F172A" stroke="#334155"/>
+  <text x="312" y="551" fill="#E2E8F0" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">ATS score</text>
+  <rect x="454" y="526" width="158" height="40" rx="20" fill="#0F172A" stroke="#334155"/>
+  <text x="480" y="551" fill="#E2E8F0" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">Job alerts</text>
 
-  <rect x="744" y="156" width="312" height="244" rx="28" fill="rgba(15,23,42,0.94)" stroke="rgba(255,255,255,0.10)"/>
-  <text x="776" y="208" fill="#60A5FA" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">RESUME MATCH SCORE</text>
-  <text x="776" y="252" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">
-    <tspan x="776" dy="0">Filter roles by fit</tspan>
-    <tspan x="776" dy="34">before you apply.</tspan>
+  <rect x="756" y="146" width="300" height="268" rx="28" fill="rgba(15,23,42,0.95)" stroke="rgba(255,255,255,0.10)"/>
+  <text x="786" y="194" fill="#60A5FA" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700">RESUME MATCH SCORE</text>
+  <text x="786" y="232" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700">
+    <tspan x="786" dy="0">See fit before</tspan>
+    <tspan x="786" dy="30">you apply</tspan>
   </text>
-  <text x="776" y="322" fill="#94A3B8" font-family="Arial, Helvetica, sans-serif" font-size="19">Use the score range to surface stronger matches first.</text>
-
-  <rect x="776" y="348" width="248" height="14" rx="7" fill="#1E293B"/>
-  <rect x="776" y="348" width="190" height="14" rx="7" fill="url(#paint5_linear_1_2)"/>
-  <circle cx="966" cy="355" r="16" fill="#60A5FA" stroke="#DBEAFE" stroke-width="4"/>
-
-  <text x="776" y="404" fill="#E2E8F0" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">8.4 / 10</text>
-  <text x="876" y="404" fill="#94A3B8" font-family="Arial, Helvetica, sans-serif" font-size="19">Strong match for product roles</text>
-
-  <rect x="744" y="418" width="312" height="108" rx="22" fill="#111C33" stroke="rgba(96,165,250,0.22)"/>
-  <text x="776" y="456" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">
-    <tspan x="776" dy="0">Open strong-match</tspan>
-    <tspan x="776" dy="26">jobs first</tspan>
+  <text x="786" y="294" fill="#94A3B8" font-family="Arial, Helvetica, sans-serif" font-size="17">
+    <tspan x="786" dy="0">Keep stronger matches</tspan>
+    <tspan x="786" dy="24">at the top of your list.</tspan>
   </text>
-  <text x="776" y="506" fill="#94A3B8" font-family="Arial, Helvetica, sans-serif" font-size="18">Spend time where your resume already fits.</text>
+
+  <rect x="786" y="338" width="240" height="14" rx="7" fill="#1E293B"/>
+  <rect x="786" y="338" width="184" height="14" rx="7" fill="url(#paint5_linear_1_2)"/>
+  <circle cx="970" cy="345" r="16" fill="#60A5FA" stroke="#DBEAFE" stroke-width="4"/>
+
+  <rect x="786" y="368" width="86" height="34" rx="17" fill="#111C33" stroke="rgba(96,165,250,0.22)"/>
+  <text x="810" y="390" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">8.4/10</text>
+  <rect x="886" y="368" width="118" height="34" rx="17" fill="#111C33" stroke="rgba(255,255,255,0.10)"/>
+  <text x="914" y="390" fill="#E2E8F0" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700">Strong fit</text>
+
+  <rect x="756" y="428" width="300" height="96" rx="24" fill="#111C33" stroke="rgba(96,165,250,0.22)"/>
+  <text x="786" y="460" fill="#60A5FA" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700">WHY IT MATTERS</text>
+  <text x="786" y="490" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">
+    <tspan x="786" dy="0">Skip blind applying.</tspan>
+  </text>
+  <text x="775" y="518" fill="#94A3B8" font-family="Arial, Helvetica, sans-serif" font-size="17">Spend time on roles that already fit.</text>
 
   <defs>
     <radialGradient id="paint0_radial_1_2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(204 475) rotate(90) scale(240)">
