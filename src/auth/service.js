@@ -30,12 +30,40 @@ function normalizeEmail(email) {
     return normalized;
 }
 
+function normalizeProfileName(name) {
+    const normalized = `${name ?? ''}`.trim();
+    if (!normalized) {
+        throw httpError(400, 'A non-empty "name" is required.', 'bad_request');
+    }
+
+    return normalized.slice(0, 100);
+}
+
+function normalizePhoneNumber(phoneNumber) {
+    const normalized = `${phoneNumber ?? ''}`.trim();
+    if (!normalized) {
+        return null;
+    }
+
+    const digitsOnly = normalized.replace(/\D/g, '');
+    if (digitsOnly.length < 7 || digitsOnly.length > 15) {
+        throw httpError(400, '"phoneNumber" must contain between 7 and 15 digits.', 'bad_request');
+    }
+
+    if (!/^\+?[0-9()\-\s]+$/.test(normalized)) {
+        throw httpError(400, '"phoneNumber" may only include digits, spaces, parentheses, hyphens, and an optional leading +.', 'bad_request');
+    }
+
+    return normalized.slice(0, 30);
+}
+
 function sanitizeIdentity(identity, authType) {
     return {
         clientId: identity.clientId,
         userId: identity.userId ?? null,
         email: identity.email ?? null,
         name: identity.name,
+        phoneNumber: identity.phoneNumber ?? null,
         role: identity.role,
         permissions: resolvePermissions(identity),
         authType,
@@ -266,6 +294,33 @@ export function createAuthService(authConfig, {
         };
     }
 
+    async function updateProfile({ identity, name, phoneNumber }) {
+        if (!userRepository) {
+            throw httpError(500, 'Profile updates are not configured.', 'profile_updates_not_configured');
+        }
+
+        if (!identity?.clientId) {
+            throw httpError(401, 'Missing authenticated user identity.', 'unauthorized');
+        }
+
+        const existingUser = await userRepository.findByClientId(identity.clientId);
+        if (!existingUser) {
+            throw httpError(404, 'User profile not found.', 'not_found');
+        }
+
+        const nextUser = {
+            ...toUserDocument(existingUser),
+            name: normalizeProfileName(name ?? existingUser.name),
+            phoneNumber: phoneNumber === undefined
+                ? (existingUser.phoneNumber ?? null)
+                : normalizePhoneNumber(phoneNumber),
+            updatedAt: new Date().toISOString(),
+        };
+
+        await userRepository.saveUser(nextUser);
+        return sanitizeIdentity(nextUser, identity.authType ?? 'api_key');
+    }
+
     return {
         issueAccessToken,
         verifyAccessToken,
@@ -273,5 +328,6 @@ export function createAuthService(authConfig, {
         authorize,
         requestEmailOtp,
         verifyEmailOtp,
+        updateProfile,
     };
 }

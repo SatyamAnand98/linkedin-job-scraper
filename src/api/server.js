@@ -54,7 +54,191 @@ function createServiceLogger() {
     };
 }
 
-const frontendAssetCache = new Map();
+const frontendTextAssetCache = new Map();
+const frontendBinaryAssetCache = new Map();
+const PUBLIC_SITEMAP_PATHS = ['/', '/terms', '/contact'];
+const FRONTEND_PAGE_METADATA = {
+    'index.html': {
+        title: 'ApplyDesk Cloud | Search Jobs That Actually Match Your Resume',
+        description: 'ApplyDesk Cloud helps you stop mass applying and focus on jobs that actually match your resume with resume-aware scoring and targeted alerts.',
+        robots: 'index,follow,max-image-preview:large',
+        schema: 'marketing',
+    },
+    'contact.html': {
+        title: 'ApplyDesk Cloud | Contact ApplyDesk Cloud',
+        description: 'Reach ApplyDesk Cloud for support, account help, and product questions about resume-aware job search and alerts.',
+        robots: 'index,follow,max-image-preview:large',
+    },
+    'terms.html': {
+        title: 'ApplyDesk Cloud | Terms and Conditions',
+        description: 'Review the ApplyDesk Cloud terms and conditions for resume-aware job search, alerts, and account access.',
+        robots: 'index,follow,max-image-preview:large',
+    },
+    'login.html': {
+        title: 'ApplyDesk Cloud | Email Login',
+        description: 'Log in to ApplyDesk Cloud and access resume-aware job search, ATS-style fit scoring, and saved alerts.',
+        robots: 'noindex,nofollow',
+    },
+    'search.html': {
+        title: 'ApplyDesk Cloud | Resume-Aware Job Search',
+        description: 'Search jobs that match your resume, score fit before you apply, and focus on the strongest opportunities.',
+        robots: 'noindex,nofollow',
+    },
+    'alerts.html': {
+        title: 'ApplyDesk Cloud | Resume-Match Job Alerts',
+        description: 'Create resume-aware job alerts so only the strongest matching roles reach your inbox.',
+        robots: 'noindex,nofollow',
+    },
+    'account.html': {
+        title: 'ApplyDesk Cloud | Dashboard',
+        description: 'Manage your ApplyDesk Cloud account, profile, API key, and upcoming feature access.',
+        robots: 'noindex,nofollow',
+    },
+};
+
+function escapeHtml(value) {
+    return `${value ?? ''}`
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;');
+}
+
+function normalizeForwardedHeaderValue(value) {
+    return `${value ?? ''}`.split(',')[0].trim();
+}
+
+function getRequestOrigin(request) {
+    const forwardedProto = normalizeForwardedHeaderValue(request.headers['x-forwarded-proto']);
+    const forwardedHost = normalizeForwardedHeaderValue(request.headers['x-forwarded-host']);
+    const host = forwardedHost || normalizeForwardedHeaderValue(request.headers.host) || 'localhost:3000';
+    const protocol = forwardedProto || (request.raw.socket?.encrypted ? 'https' : 'http');
+    return `${protocol}://${host}`;
+}
+
+function getRequestUrl(request) {
+    return new URL(request.raw.url ?? '/', getRequestOrigin(request));
+}
+
+function buildStructuredDataMarkup({ origin, description }) {
+    const structuredData = {
+        '@context': 'https://schema.org',
+        '@graph': [
+            {
+                '@type': 'Organization',
+                name: 'ApplyDesk Cloud',
+                url: origin,
+                logo: `${origin}/favicon.svg`,
+                contactPoint: {
+                    '@type': 'ContactPoint',
+                    contactType: 'customer support',
+                    email: 'application.info@satyamanand.in',
+                    telephone: '+91-9513868175',
+                },
+            },
+            {
+                '@type': 'WebSite',
+                name: 'ApplyDesk Cloud',
+                url: origin,
+                description,
+            },
+            {
+                '@type': 'SoftwareApplication',
+                name: 'ApplyDesk Cloud',
+                applicationCategory: 'BusinessApplication',
+                operatingSystem: 'Web',
+                url: origin,
+                description,
+                offers: {
+                    '@type': 'Offer',
+                    price: '0',
+                    priceCurrency: 'USD',
+                },
+            },
+        ],
+    };
+
+    return `
+    <script type="application/ld+json">${JSON.stringify(structuredData).replaceAll('<', '\\u003c')}</script>`;
+}
+
+function buildSeoHeadMarkup(fileName, request) {
+    const pageMeta = FRONTEND_PAGE_METADATA[fileName] ?? FRONTEND_PAGE_METADATA['index.html'];
+    const requestUrl = getRequestUrl(request);
+    requestUrl.search = '';
+    requestUrl.hash = '';
+
+    const canonicalUrl = requestUrl.toString();
+    const origin = requestUrl.origin;
+    const socialImageUrl = `${origin}/social-preview.png`;
+    const imageAlt = 'ApplyDesk Cloud preview showing resume-aware job search and fit scoring.';
+    const structuredData = pageMeta.schema ? buildStructuredDataMarkup({
+        origin,
+        description: pageMeta.description,
+    }) : '';
+
+    return `
+    <meta name="description" content="${escapeHtml(pageMeta.description)}">
+    <meta name="robots" content="${escapeHtml(pageMeta.robots)}">
+    <meta name="application-name" content="ApplyDesk Cloud">
+    <meta name="theme-color" content="#020617">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <link rel="canonical" href="${escapeHtml(canonicalUrl)}">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:site_name" content="ApplyDesk Cloud">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="${escapeHtml(pageMeta.title)}">
+    <meta property="og:description" content="${escapeHtml(pageMeta.description)}">
+    <meta property="og:url" content="${escapeHtml(canonicalUrl)}">
+    <meta property="og:image" content="${escapeHtml(socialImageUrl)}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="${escapeHtml(imageAlt)}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${escapeHtml(pageMeta.title)}">
+    <meta name="twitter:description" content="${escapeHtml(pageMeta.description)}">
+    <meta name="twitter:image" content="${escapeHtml(socialImageUrl)}">
+    <meta name="twitter:image:alt" content="${escapeHtml(imageAlt)}">${structuredData}
+`;
+}
+
+function decorateFrontendPage(body, fileName, request) {
+    const pageMeta = FRONTEND_PAGE_METADATA[fileName];
+    let nextBody = body;
+
+    if (pageMeta) {
+        nextBody = nextBody.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(pageMeta.title)}</title>`);
+    }
+
+    if (nextBody.includes('</head>')) {
+        nextBody = nextBody.replace('</head>', `${buildSeoHeadMarkup(fileName, request)}</head>`);
+    }
+
+    return nextBody;
+}
+
+function buildSitemapXml(request) {
+    const origin = getRequestOrigin(request);
+    const urls = PUBLIC_SITEMAP_PATHS.map((pathName) => `  <url><loc>${escapeHtml(new URL(pathName, origin).toString())}</loc></url>`);
+
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls.join('\n')}
+</urlset>`;
+}
+
+function buildRobotsTxt(request) {
+    const origin = getRequestOrigin(request);
+    return `User-agent: *
+Allow: /
+Disallow: /app/
+Disallow: /v1/
+Disallow: /health
+
+Sitemap: ${new URL('/sitemap.xml', origin).toString()}
+`;
+}
 
 function createDevReloadScript(reloadToken) {
     return `
@@ -79,12 +263,20 @@ function createDevReloadScript(reloadToken) {
 </script>`;
 }
 
-async function loadFrontendAsset(fileName) {
-    if (!frontendAssetCache.has(fileName)) {
-        frontendAssetCache.set(fileName, readFile(new URL(`../frontend/${fileName}`, import.meta.url), 'utf8'));
+async function loadFrontendTextAsset(fileName) {
+    if (!frontendTextAssetCache.has(fileName)) {
+        frontendTextAssetCache.set(fileName, readFile(new URL(`../frontend/${fileName}`, import.meta.url), 'utf8'));
     }
 
-    return frontendAssetCache.get(fileName);
+    return frontendTextAssetCache.get(fileName);
+}
+
+async function loadFrontendBinaryAsset(fileName) {
+    if (!frontendBinaryAssetCache.has(fileName)) {
+        frontendBinaryAssetCache.set(fileName, readFile(new URL(`../frontend/${fileName}`, import.meta.url)));
+    }
+
+    return frontendBinaryAssetCache.get(fileName);
 }
 
 export function createApiServer(options = {}) {
@@ -160,8 +352,8 @@ export function createApiServer(options = {}) {
         logger: false,
     });
 
-    async function sendFrontendPage(reply, fileName) {
-        let body = await loadFrontendAsset(fileName);
+    async function sendFrontendPage(request, reply, fileName) {
+        let body = decorateFrontendPage(await loadFrontendTextAsset(fileName), fileName, request);
         if (isDevFrontendMode && body.includes('</body>')) {
             body = body.replace('</body>', `${createDevReloadScript(reloadToken)}</body>`);
         }
@@ -172,11 +364,11 @@ export function createApiServer(options = {}) {
             .send(body);
     }
 
-    async function sendFrontendAsset(reply, fileName, contentType) {
+    async function sendFrontendAsset(reply, fileName, contentType, { binary = false } = {}) {
         reply
             .header('cache-control', isDevFrontendMode ? 'no-store' : 'public, max-age=0, must-revalidate')
             .type(contentType)
-            .send(await loadFrontendAsset(fileName));
+            .send(binary ? await loadFrontendBinaryAsset(fileName) : await loadFrontendTextAsset(fileName));
     }
 
     let initializationPromise = null;
@@ -293,15 +485,15 @@ export function createApiServer(options = {}) {
     }));
 
     server.get('/', async (request, reply) => {
-        await sendFrontendPage(reply, 'index.html');
+        await sendFrontendPage(request, reply, 'index.html');
     });
 
     server.get('/terms', async (request, reply) => {
-        await sendFrontendPage(reply, 'terms.html');
+        await sendFrontendPage(request, reply, 'terms.html');
     });
 
     server.get('/contact', async (request, reply) => {
-        await sendFrontendPage(reply, 'contact.html');
+        await sendFrontendPage(request, reply, 'contact.html');
     });
 
     server.get('/app/app.js', async (request, reply) => {
@@ -310,6 +502,32 @@ export function createApiServer(options = {}) {
 
     server.get('/app/styles.css', async (request, reply) => {
         await sendFrontendAsset(reply, 'styles.css', 'text/css; charset=utf-8');
+    });
+
+    server.get('/favicon.svg', async (request, reply) => {
+        await sendFrontendAsset(reply, 'favicon.svg', 'image/svg+xml; charset=utf-8');
+    });
+
+    server.get('/social-preview.svg', async (request, reply) => {
+        await sendFrontendAsset(reply, 'social-preview.svg', 'image/svg+xml; charset=utf-8');
+    });
+
+    server.get('/social-preview.png', async (request, reply) => {
+        await sendFrontendAsset(reply, 'social-preview.png', 'image/png', { binary: true });
+    });
+
+    server.get('/robots.txt', async (request, reply) => {
+        reply
+            .header('cache-control', isDevFrontendMode ? 'no-store' : 'public, max-age=0, must-revalidate')
+            .type('text/plain; charset=utf-8')
+            .send(buildRobotsTxt(request));
+    });
+
+    server.get('/sitemap.xml', async (request, reply) => {
+        reply
+            .header('cache-control', isDevFrontendMode ? 'no-store' : 'public, max-age=0, must-revalidate')
+            .type('application/xml; charset=utf-8')
+            .send(buildSitemapXml(request));
     });
 
     server.get('/app/dev/reload', async () => ({
@@ -321,7 +539,7 @@ export function createApiServer(options = {}) {
     });
 
     server.get('/login', async (request, reply) => {
-        await sendFrontendPage(reply, 'login.html');
+        await sendFrontendPage(request, reply, 'login.html');
     });
 
     server.get('/app/login', async (request, reply) => {
@@ -341,15 +559,15 @@ export function createApiServer(options = {}) {
     });
 
     server.get('/app/search', async (request, reply) => {
-        await sendFrontendPage(reply, 'search.html');
+        await sendFrontendPage(request, reply, 'search.html');
     });
 
     server.get('/app/alerts', async (request, reply) => {
-        await sendFrontendPage(reply, 'alerts.html');
+        await sendFrontendPage(request, reply, 'alerts.html');
     });
 
     server.get('/app/account', async (request, reply) => {
-        await sendFrontendPage(reply, 'account.html');
+        await sendFrontendPage(request, reply, 'account.html');
     });
 
     server.addHook('onClose', async () => {
@@ -416,6 +634,22 @@ export function createApiServer(options = {}) {
     server.get('/v1/auth/me', { preHandler: requireAuth() }, async (request) => ({
         identity: request.identity,
     }));
+
+    server.patch('/v1/auth/profile', { preHandler: requireAuth() }, async (request, reply) => {
+        try {
+            await ensureInitialized();
+
+            const identity = await authService.updateProfile({
+                identity: request.identity,
+                name: request.body?.name,
+                phoneNumber: request.body?.phoneNumber,
+            });
+
+            reply.send({ identity });
+        } catch (error) {
+            replyWithError(reply, error);
+        }
+    });
 
     server.post('/v1/jobs/search', { preHandler: requirePermission('jobs:run') }, async (request, reply) => {
         try {

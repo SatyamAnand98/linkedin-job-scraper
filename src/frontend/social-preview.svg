@@ -1,0 +1,78 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" fill="#020617"/>
+  <circle cx="204" cy="475" r="240" fill="url(#paint0_radial_1_2)" fill-opacity="0.55"/>
+  <circle cx="1032" cy="132" r="214" fill="url(#paint1_radial_1_2)" fill-opacity="0.45"/>
+  <circle cx="910" cy="520" r="180" fill="url(#paint2_radial_1_2)" fill-opacity="0.35"/>
+  <rect x="56" y="56" width="1088" height="518" rx="36" fill="url(#paint3_linear_1_2)" stroke="rgba(255,255,255,0.08)"/>
+
+  <rect x="96" y="98" width="88" height="88" rx="24" fill="url(#paint4_linear_1_2)"/>
+  <text x="112" y="151" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="700">AD</text>
+  <text x="214" y="133" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="700">ApplyDesk Cloud</text>
+  <text x="214" y="171" fill="#94A3B8" font-family="Arial, Helvetica, sans-serif" font-size="23">Resume-aware job search and alerts</text>
+
+  <rect x="96" y="210" width="194" height="34" rx="17" fill="#0F172A" stroke="#1E3A5F"/>
+  <text x="122" y="233" fill="#60A5FA" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">SIGNATURE FEATURE</text>
+
+  <text x="96" y="292" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="700">Search jobs that</text>
+  <text x="96" y="360" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="700">actually match</text>
+  <text x="96" y="428" fill="#60A5FA" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="700">your resume</text>
+
+  <text x="96" y="476" fill="#CBD5E1" font-family="Arial, Helvetica, sans-serif" font-size="24">Upload your resume once, score every role for fit, and focus on</text>
+  <text x="96" y="510" fill="#CBD5E1" font-family="Arial, Helvetica, sans-serif" font-size="24">the strongest jobs instead of mass applying.</text>
+
+  <rect x="96" y="524" width="196" height="42" rx="21" fill="#0F172A" stroke="#334155"/>
+  <text x="124" y="551" fill="#E2E8F0" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">Resume ranking</text>
+  <rect x="308" y="524" width="176" height="42" rx="21" fill="#0F172A" stroke="#334155"/>
+  <text x="336" y="551" fill="#E2E8F0" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">ATS fit score</text>
+  <rect x="500" y="524" width="186" height="42" rx="21" fill="#0F172A" stroke="#334155"/>
+  <text x="528" y="551" fill="#E2E8F0" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">Focused alerts</text>
+
+  <rect x="744" y="156" width="312" height="244" rx="28" fill="rgba(15,23,42,0.94)" stroke="rgba(255,255,255,0.10)"/>
+  <text x="776" y="208" fill="#60A5FA" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">RESUME MATCH SCORE</text>
+  <text x="776" y="252" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">
+    <tspan x="776" dy="0">Filter roles by fit</tspan>
+    <tspan x="776" dy="34">before you apply.</tspan>
+  </text>
+  <text x="776" y="322" fill="#94A3B8" font-family="Arial, Helvetica, sans-serif" font-size="19">Use the score range to surface stronger matches first.</text>
+
+  <rect x="776" y="348" width="248" height="14" rx="7" fill="#1E293B"/>
+  <rect x="776" y="348" width="190" height="14" rx="7" fill="url(#paint5_linear_1_2)"/>
+  <circle cx="966" cy="355" r="16" fill="#60A5FA" stroke="#DBEAFE" stroke-width="4"/>
+
+  <text x="776" y="404" fill="#E2E8F0" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">8.4 / 10</text>
+  <text x="876" y="404" fill="#94A3B8" font-family="Arial, Helvetica, sans-serif" font-size="19">Strong match for product roles</text>
+
+  <rect x="744" y="418" width="312" height="108" rx="22" fill="#111C33" stroke="rgba(96,165,250,0.22)"/>
+  <text x="776" y="456" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">
+    <tspan x="776" dy="0">Open strong-match</tspan>
+    <tspan x="776" dy="26">jobs first</tspan>
+  </text>
+  <text x="776" y="506" fill="#94A3B8" font-family="Arial, Helvetica, sans-serif" font-size="18">Spend time where your resume already fits.</text>
+
+  <defs>
+    <radialGradient id="paint0_radial_1_2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(204 475) rotate(90) scale(240)">
+      <stop stop-color="#0EA5E9"/>
+      <stop offset="1" stop-color="#0EA5E9" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="paint1_radial_1_2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1032 132) rotate(90) scale(214)">
+      <stop stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#8B5CF6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="paint2_radial_1_2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(910 520) rotate(90) scale(180)">
+      <stop stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#2563EB" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="paint3_linear_1_2" x1="96" y1="78" x2="1080" y2="578" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#081224"/>
+      <stop offset="1" stop-color="#0B1227"/>
+    </linearGradient>
+    <linearGradient id="paint4_linear_1_2" x1="96" y1="98" x2="184" y2="186" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3B82F6"/>
+      <stop offset="1" stop-color="#8B5CF6"/>
+    </linearGradient>
+    <linearGradient id="paint5_linear_1_2" x1="776" y1="355" x2="966" y2="355" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#60A5FA"/>
+    </linearGradient>
+  </defs>
+</svg>

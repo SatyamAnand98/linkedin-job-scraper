@@ -53,6 +53,13 @@ export class LinkedInJobsApiClient {
         return this.#request('/v1/auth/me');
     }
 
+    updateProfile(input) {
+        return this.#request('/v1/auth/profile', {
+            method: 'PATCH',
+            body: input,
+        });
+    }
+
     searchJobs(input) {
         return this.#request('/v1/jobs/search', {
             method: 'POST',

@@ -44,12 +44,13 @@
                     <div class="workspace-header">
                         <div>
                             <p class="section-heading__eyebrow">Search</p>
-                            <h2>Search and review results.</h2>
-                            <p>Run a search. Check fit. Save filters.</p>
+                            <h2>Search jobs that fit your resume.</h2>
+                            <p>Upload your resume, score each role for fit, and focus on the jobs worth applying to.</p>
                         </div>
 
                         <div class="workspace-badges">
-                            <span>Fit scoring</span>
+                            <span>Resume-aware search</span>
+                            <span>ATS-style fit score</span>
                             <span>Pagination</span>
                             <span>Saved filters</span>
                         </div>
@@ -60,12 +61,91 @@
                             <div class="panel__header">
                                 <div>
                                     <h2>Filters</h2>
-                                    <p class="muted">Set role, location, and fit.</p>
+                                    <p class="muted">Set role, location, and fit. Each page returns 10 jobs.</p>
                                 </div>
                                 <button type="button" id="reset-filters" class="button button--ghost">Reset</button>
                             </div>
 
                             <form id="search-form" class="form-grid">
+                                <input name="pageNumber" type="hidden" value="1">
+
+                                <section class="resume-spotlight field--full">
+                                    <div class="resume-spotlight__intro">
+                                        <div>
+                                            <p class="resume-spotlight__eyebrow">Signature feature</p>
+                                            <h3>Search jobs that match your resume</h3>
+                                            <p>Upload your resume once. ApplyDesk scores each role so you can focus on strong-fit jobs instead of mass applying.</p>
+                                        </div>
+
+                                        <div class="resume-spotlight__badges">
+                                            <span>Resume ranking</span>
+                                            <span>Fit filter</span>
+                                            <span>Alert ready</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="resume-spotlight__grid">
+                                        <label class="field">
+                                            <span>Resume URL</span>
+                                            <input name="resumeUrl" type="url" placeholder="https://example.com/resume.pdf">
+                                        </label>
+
+                                        <label class="field">
+                                            <span class="field__header">
+                                                <span>Upload resume</span>
+                                                <button type="button" class="field__clear"
+                                                    data-reset-target="resumeFile">Clear</button>
+                                            </span>
+                                            <input name="resumeFile" type="file"
+                                                accept=".pdf,.docx,.txt,.md,.html,.htm,.json,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+                                            <span id="resume-file-state" class="field__hint">No file selected</span>
+                                        </label>
+
+                                        <div class="score-range field--full" data-score-range>
+                                            <input name="resumeMatchMinScore" type="hidden" value="">
+                                            <input name="resumeMatchMaxScore" type="hidden" value="">
+
+                                            <div class="score-range__header">
+                                                <div>
+                                                    <span class="score-range__title">Resume Match Score</span>
+                                                    <p>Keep only the strongest resume fits. This works like an ATS-style score from 1 to 10.</p>
+                                                </div>
+                                                <div class="score-range__summary" data-score-range-summary>Any fit score</div>
+                                            </div>
+
+                                            <div class="score-range__control">
+                                                <div class="score-range__track"></div>
+                                                <div class="score-range__fill" data-score-range-fill></div>
+                                                <input type="range" min="1" max="10" step="0.1" value="1"
+                                                    data-score-range-min aria-label="Minimum resume match score">
+                                                <input type="range" min="1" max="10" step="0.1" value="10"
+                                                    data-score-range-max aria-label="Maximum resume match score">
+                                            </div>
+
+                                            <div class="score-range__legend">
+                                                <span>1 broad fit</span>
+                                                <span>5 balanced</span>
+                                                <span>10 strongest fit</span>
+                                            </div>
+
+                                            <div class="score-range__values">
+                                                <div class="score-range__value">
+                                                    <span>Minimum match</span>
+                                                    <strong data-score-range-min-label>1</strong>
+                                                </div>
+
+                                                <button type="button" class="score-range__reset"
+                                                    data-score-range-reset>Use full range</button>
+
+                                                <div class="score-range__value">
+                                                    <span>Maximum match</span>
+                                                    <strong data-score-range-max-label>10</strong>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+
                                 <label class="field field--full">
                                     <span>Job title</span>
                                     <input name="title" type="text" placeholder="Product Manager">
@@ -74,16 +154,6 @@
                                 <label class="field">
                                     <span>Location</span>
                                     <input name="location" type="text" placeholder="Bengaluru">
-                                </label>
-
-                                <label class="field">
-                                    <span>Jobs per page</span>
-                                    <input name="rows" type="number" min="1" max="1000" value="10">
-                                </label>
-
-                                <label class="field">
-                                    <span>Page number</span>
-                                    <input name="pageNumber" type="number" min="1" max="1000" value="1">
                                 </label>
 
                                 <label class="field">
@@ -101,10 +171,10 @@
                                     <input name="companyName" type="text" placeholder="Google, Microsoft">
                                 </label>
 
-                                <label class="field">
+                                <!-- <label class="field">
                                     <span>Company IDs</span>
                                     <input name="companyId" type="text" placeholder="76987811, 1815218">
-                                </label>
+                                </label> -->
 
                                 <label class="field">
                                     <span class="field__header">
@@ -145,44 +215,6 @@
                                         <option value="4">Mid-Senior level</option>
                                         <option value="5">Director</option>
                                     </select>
-                                </label>
-
-                                <label class="field">
-                                    <span>Resume URL</span>
-                                    <input name="resumeUrl" type="url" placeholder="https://example.com/resume.pdf">
-                                </label>
-
-                                <label class="field field--full">
-                                    <span class="field__header">
-                                        <span>Resume file</span>
-                                        <button type="button" class="field__clear"
-                                            data-reset-target="resumeFile">Clear</button>
-                                    </span>
-                                    <input name="resumeFile" type="file"
-                                        accept=".pdf,.docx,.txt,.md,.html,.htm,.json,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
-                                    <span id="resume-file-state" class="field__hint">No file selected</span>
-                                </label>
-
-                                <label class="field">
-                                    <span>Min score</span>
-                                    <input name="resumeMatchMinScore" type="number" min="1" max="10" step="0.1"
-                                        placeholder="7">
-                                </label>
-
-                                <label class="field">
-                                    <span>Max score</span>
-                                    <input name="resumeMatchMaxScore" type="number" min="1" max="10" step="0.1"
-                                        placeholder="10">
-                                </label>
-
-                                <label class="field">
-                                    <span>Search delay ms</span>
-                                    <input name="requestDelayMs" type="number" min="0" max="10000" value="600">
-                                </label>
-
-                                <label class="field">
-                                    <span>Detail loading</span>
-                                    <input name="detailConcurrency" type="number" min="1" max="10" value="3">
                                 </label>
 
                                 <label class="field field--toggle field--full">

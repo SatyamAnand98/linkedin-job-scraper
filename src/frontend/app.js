@@ -2,6 +2,12 @@ const APPLIED_JOBS_STORAGE_KEY = 'linkedin-jobs-applied-job-ids';
 const PREFERENCES_STORAGE_KEY = 'linkedin-jobs-frontend-preferences';
 const SESSION_PROFILE_STORAGE_KEY = 'linkedin-jobs-session-profile';
 const LEGACY_LOCAL_DEV_API_KEY = 'change-me-local-dev-api-key';
+const DEFAULT_SEARCH_PAGE_NUMBER = 1;
+const FIXED_ROWS_PER_PAGE = 10;
+const FIXED_REQUEST_DELAY_MS = 600;
+const FIXED_DETAIL_CONCURRENCY = 3;
+const SCORE_RANGE_MIN = 1;
+const SCORE_RANGE_MAX = 10;
 
 const isBrowser = typeof document !== 'undefined';
 const page = isBrowser ? document.body.dataset.page ?? '' : '';
@@ -19,6 +25,7 @@ const statusBanner = isBrowser ? document.querySelector('#status-banner') : null
 const searchButton = isBrowser ? document.querySelector('#search-button') : null;
 const nextPageButton = isBrowser ? document.querySelector('#next-page') : null;
 const previousPageButton = isBrowser ? document.querySelector('#previous-page') : null;
+const paginationFooter = isBrowser ? document.querySelector('.pagination-footer') : null;
 const resetFiltersButton = isBrowser ? document.querySelector('#reset-filters') : null;
 const requestOtpButton = isBrowser ? document.querySelector('#request-otp') : null;
 const verifyOtpButton = isBrowser ? document.querySelector('#verify-otp') : null;
@@ -45,7 +52,9 @@ const sessionStateNodes = isBrowser ? [...document.querySelectorAll('[data-sessi
 const sessionEmailNodes = isBrowser ? [...document.querySelectorAll('[data-session-email]')] : [];
 const sessionNameNodes = isBrowser ? [...document.querySelectorAll('[data-session-name]')] : [];
 const refreshSessionButton = isBrowser ? document.querySelector('#refresh-session') : null;
+const saveProfileButton = isBrowser ? document.querySelector('#save-profile') : null;
 const copyApiKeyButton = isBrowser ? document.querySelector('#copy-api-key') : null;
+const scoreRangeControls = isBrowser ? [...document.querySelectorAll('[data-score-range]')] : [];
 
 let lastResponse = null;
 let lastVisibleItems = [];
@@ -54,6 +63,7 @@ let otpRequestedEmail = '';
 let uiLoading = false;
 let appliedJobsPersistenceMode = 'local';
 let appliedJobsCache = new Set();
+let pendingSearchPageNumber = null;
 
 if (isBrowser) {
     bootstrap();
@@ -72,6 +82,161 @@ function readFieldValue(fieldName, fallback = '') {
 
 function readTrimmedFieldValue(fieldName) {
     return readFieldValue(fieldName).trim();
+}
+
+function parsePositiveInteger(value, fallback = DEFAULT_SEARCH_PAGE_NUMBER) {
+    const parsed = Number.parseInt(`${value ?? ''}`, 10);
+    return Number.isFinite(parsed) && parsed >= DEFAULT_SEARCH_PAGE_NUMBER
+        ? Math.trunc(parsed)
+        : fallback;
+}
+
+function getSearchPageNumber() {
+    return parsePositiveInteger(readFieldValue('pageNumber', `${DEFAULT_SEARCH_PAGE_NUMBER}`));
+}
+
+function setSearchPageNumber(value) {
+    const field = getField('pageNumber');
+    if (field) {
+        field.value = `${parsePositiveInteger(value)}`;
+    }
+}
+
+function resetSearchPagination() {
+    pendingSearchPageNumber = null;
+    setSearchPageNumber(DEFAULT_SEARCH_PAGE_NUMBER);
+}
+
+function normalizeScoreValue(value, fallback) {
+    const parsed = Number.parseFloat(`${value ?? ''}`);
+    if (!Number.isFinite(parsed)) {
+        return fallback;
+    }
+
+    return Math.min(SCORE_RANGE_MAX, Math.max(SCORE_RANGE_MIN, Math.round(parsed * 10) / 10));
+}
+
+function formatScoreValue(value) {
+    const normalized = Math.round(value * 10) / 10;
+    return Number.isInteger(normalized) ? `${normalized}` : normalized.toFixed(1);
+}
+
+function isFullScoreRange(minValue, maxValue) {
+    return minValue === SCORE_RANGE_MIN && maxValue === SCORE_RANGE_MAX;
+}
+
+function updateScoreRangeControl(control, trigger = '') {
+    if (!control) {
+        return;
+    }
+
+    const minField = control.querySelector('input[name="resumeMatchMinScore"]');
+    const maxField = control.querySelector('input[name="resumeMatchMaxScore"]');
+    const minInput = control.querySelector('[data-score-range-min]');
+    const maxInput = control.querySelector('[data-score-range-max]');
+    const fill = control.querySelector('[data-score-range-fill]');
+    const summary = control.querySelector('[data-score-range-summary]');
+    const minLabel = control.querySelector('[data-score-range-min-label]');
+    const maxLabel = control.querySelector('[data-score-range-max-label]');
+
+    if (!minField || !maxField || !minInput || !maxInput || !fill) {
+        return;
+    }
+
+    let minValue = normalizeScoreValue(minInput.value, SCORE_RANGE_MIN);
+    let maxValue = normalizeScoreValue(maxInput.value, SCORE_RANGE_MAX);
+
+    if (trigger === 'min' && minValue > maxValue) {
+        maxValue = minValue;
+    } else if (trigger === 'max' && maxValue < minValue) {
+        minValue = maxValue;
+    } else if (minValue > maxValue) {
+        [minValue, maxValue] = [maxValue, minValue];
+    }
+
+    minInput.value = `${minValue}`;
+    maxInput.value = `${maxValue}`;
+
+    const useFullRange = isFullScoreRange(minValue, maxValue);
+    minField.value = useFullRange ? '' : formatScoreValue(minValue);
+    maxField.value = useFullRange ? '' : formatScoreValue(maxValue);
+
+    const toPercent = (value) => ((value - SCORE_RANGE_MIN) / (SCORE_RANGE_MAX - SCORE_RANGE_MIN)) * 100;
+    fill.style.left = `${toPercent(minValue)}%`;
+    fill.style.right = `${100 - toPercent(maxValue)}%`;
+
+    if (summary) {
+        summary.textContent = useFullRange
+            ? 'Any fit score'
+            : `${formatScoreValue(minValue)} to ${formatScoreValue(maxValue)} / 10`;
+    }
+
+    if (minLabel) {
+        minLabel.textContent = formatScoreValue(minValue);
+    }
+
+    if (maxLabel) {
+        maxLabel.textContent = formatScoreValue(maxValue);
+    }
+}
+
+function syncScoreRangeControlsFromFields() {
+    scoreRangeControls.forEach((control) => {
+        const minField = control.querySelector('input[name="resumeMatchMinScore"]');
+        const maxField = control.querySelector('input[name="resumeMatchMaxScore"]');
+        const minInput = control.querySelector('[data-score-range-min]');
+        const maxInput = control.querySelector('[data-score-range-max]');
+
+        if (!minField || !maxField || !minInput || !maxInput) {
+            return;
+        }
+
+        const minValue = minField.value === ''
+            ? SCORE_RANGE_MIN
+            : normalizeScoreValue(minField.value, SCORE_RANGE_MIN);
+        const maxValue = maxField.value === ''
+            ? SCORE_RANGE_MAX
+            : normalizeScoreValue(maxField.value, SCORE_RANGE_MAX);
+
+        minInput.value = `${Math.min(minValue, maxValue)}`;
+        maxInput.value = `${Math.max(minValue, maxValue)}`;
+        updateScoreRangeControl(control);
+    });
+}
+
+function initializeScoreRangeControls() {
+    scoreRangeControls.forEach((control) => {
+        if (control.dataset.initialized === 'true') {
+            return;
+        }
+
+        const minInput = control.querySelector('[data-score-range-min]');
+        const maxInput = control.querySelector('[data-score-range-max]');
+        const resetButton = control.querySelector('[data-score-range-reset]');
+
+        minInput?.addEventListener('input', () => {
+            updateScoreRangeControl(control, 'min');
+            persistPreferences();
+        });
+        maxInput?.addEventListener('input', () => {
+            updateScoreRangeControl(control, 'max');
+            persistPreferences();
+        });
+        resetButton?.addEventListener('click', () => {
+            if (!minInput || !maxInput) {
+                return;
+            }
+
+            minInput.value = `${SCORE_RANGE_MIN}`;
+            maxInput.value = `${SCORE_RANGE_MAX}`;
+            updateScoreRangeControl(control);
+            persistPreferences();
+        });
+
+        control.dataset.initialized = 'true';
+    });
+
+    syncScoreRangeControlsFromFields();
 }
 
 function normalizeOtpValue(value) {
@@ -116,6 +281,7 @@ function appendCronPreset(cronValue) {
 
 function bootstrap() {
     hydratePreferences();
+    resetSearchPagination();
     hydrateAppliedJobsCache();
     renderSessionChrome();
     syncOtpFormState();
@@ -132,6 +298,10 @@ function bootstrap() {
 
     if (resultsSummary) {
         updateSummary();
+    }
+
+    if (accountForm && page === 'account') {
+        accountForm.addEventListener('submit', handleAccountSubmit);
     }
 
     if (searchForm && searchButton) {
@@ -214,6 +384,8 @@ function bootstrap() {
         persistPreferences();
         renderSessionChrome();
     });
+    getField('signupName')?.addEventListener('input', persistPreferences);
+    getField('phoneNumber')?.addEventListener('input', persistPreferences);
     apiKeyInput?.addEventListener('blur', async () => {
         persistPreferences();
         renderSessionChrome();
@@ -239,6 +411,7 @@ function bootstrap() {
         button.addEventListener('click', handleSignOut);
     });
     updateResumeFileState();
+    initializeScoreRangeControls();
 
     if (alertsList) {
         loadAlerts().catch(() => {
@@ -535,6 +708,7 @@ function normalizeSessionProfile(profile) {
         clientId: profile.clientId ?? null,
         email: profile.email ?? null,
         name: profile.name ?? null,
+        phoneNumber: profile.phoneNumber ?? null,
         role: profile.role ?? null,
     };
 }
@@ -545,13 +719,18 @@ function fillSessionFields(profile) {
     }
 
     const emailField = getField('signupEmail');
-    if (emailField && profile.email) {
-        emailField.value = profile.email;
+    if (emailField) {
+        emailField.value = profile.email ?? '';
     }
 
     const nameField = getField('signupName');
-    if (nameField && profile.name) {
-        nameField.value = profile.name;
+    if (nameField) {
+        nameField.value = profile.name ?? '';
+    }
+
+    const phoneField = getField('phoneNumber');
+    if (phoneField) {
+        phoneField.value = profile.phoneNumber ?? '';
     }
 
     const deliveryEmailField = getField('deliveryEmail');
@@ -610,12 +789,65 @@ async function refreshSessionProfile({ silent = false } = {}) {
     }
 }
 
+async function updateCurrentProfile({ name, phoneNumber }) {
+    const apiKey = getActiveApiKey();
+    if (!apiKey) {
+        throw new Error('Log in to continue.');
+    }
+
+    const response = await request('/v1/auth/profile', {
+        method: 'PATCH',
+        headers: {
+            'content-type': 'application/json',
+            'x-api-key': apiKey,
+        },
+        body: JSON.stringify({
+            name,
+            phoneNumber: phoneNumber || null,
+        }),
+    });
+
+    return normalizeSessionProfile(response.identity);
+}
+
+async function handleAccountSubmit(event) {
+    event.preventDefault();
+
+    const name = readTrimmedFieldValue('signupName');
+    const phoneNumber = readTrimmedFieldValue('phoneNumber');
+    if (!name) {
+        showStatus('Name is required.', 'error');
+        return;
+    }
+
+    try {
+        setLoadingState(true);
+        const profile = await updateCurrentProfile({ name, phoneNumber });
+        saveSessionProfile(profile);
+        fillSessionFields(profile);
+        persistPreferences();
+        renderSessionChrome(profile);
+        showStatus('Profile updated.', 'success');
+    } catch (error) {
+        showStatus(error.message, 'error');
+    } finally {
+        setLoadingState(false);
+    }
+}
+
 async function handleSearchSubmit(event) {
     event.preventDefault();
+
+    const isPageNavigation = pendingSearchPageNumber != null;
+    if (!isPageNavigation) {
+        setSearchPageNumber(DEFAULT_SEARCH_PAGE_NUMBER);
+    }
 
     const payload = buildPayload(searchForm);
     const validationError = validatePayload(payload);
     if (validationError) {
+        pendingSearchPageNumber = null;
+        updatePaginationControls();
         showStatus(validationError, 'error');
         return;
     }
@@ -636,6 +868,7 @@ async function handleSearchSubmit(event) {
     } catch (error) {
         showStatus(error.message, 'error');
     } finally {
+        pendingSearchPageNumber = null;
         setLoadingState(false);
     }
 }
@@ -835,21 +1068,7 @@ function handleReset() {
         resultsSortInput.value = 'api';
     }
 
-    if (getField('rows')) {
-        getField('rows').value = 10;
-    }
-
-    if (getField('pageNumber')) {
-        getField('pageNumber').value = 1;
-    }
-
-    if (getField('requestDelayMs')) {
-        getField('requestDelayMs').value = 600;
-    }
-
-    if (getField('detailConcurrency')) {
-        getField('detailConcurrency').value = 3;
-    }
+    resetSearchPagination();
 
     if (getField('cronPreset')) {
         getField('cronPreset').value = '0 * * * *';
@@ -871,6 +1090,7 @@ function handleReset() {
     }
 
     updateResumeFileState();
+    syncScoreRangeControlsFromFields();
     persistPreferences();
     renderSessionChrome();
     hideStatus();
@@ -897,14 +1117,19 @@ function resetField(fieldName) {
 }
 
 function changePageNumber(delta) {
-    const pageNumberField = getField('pageNumber');
-    if (!pageNumberField || !searchForm) {
+    if (!searchForm) {
         return;
     }
 
-    const currentValue = Number.parseInt(pageNumberField.value || '1', 10);
-    const nextValue = Math.max(1, currentValue + delta);
-    pageNumberField.value = nextValue;
+    const currentValue = lastResponse?.payload?.pageNumber ?? getSearchPageNumber();
+    const nextValue = Math.max(DEFAULT_SEARCH_PAGE_NUMBER, currentValue + delta);
+    if (nextValue === currentValue) {
+        updatePaginationControls();
+        return;
+    }
+
+    pendingSearchPageNumber = nextValue;
+    setSearchPageNumber(nextValue);
     searchForm.requestSubmit();
 }
 
@@ -927,8 +1152,10 @@ function buildPayload(currentForm) {
         alertName: currentForm?.elements?.alertName?.value?.trim?.() ?? '',
         title: currentForm?.elements?.title?.value?.trim?.() ?? '',
         location: currentForm?.elements?.location?.value?.trim?.() ?? '',
-        rows: Number.parseInt(currentForm?.elements?.rows?.value || '10', 10),
-        pageNumber: Number.parseInt(currentForm?.elements?.pageNumber?.value || '1', 10),
+        rows: FIXED_ROWS_PER_PAGE,
+        pageNumber: page === 'search'
+            ? (pendingSearchPageNumber ?? getSearchPageNumber())
+            : DEFAULT_SEARCH_PAGE_NUMBER,
         publishedAt: currentForm?.elements?.publishedAt?.value ?? '',
         companyName: parseList(currentForm?.elements?.companyName?.value ?? ''),
         companyId: parseList(currentForm?.elements?.companyId?.value ?? ''),
@@ -939,8 +1166,8 @@ function buildPayload(currentForm) {
         resumeFile: currentForm?.elements?.resumeFile?.files?.[0] ?? null,
         resumeMatchMinScore: parseOptionalNumber(currentForm?.elements?.resumeMatchMinScore?.value ?? ''),
         resumeMatchMaxScore: parseOptionalNumber(currentForm?.elements?.resumeMatchMaxScore?.value ?? ''),
-        requestDelayMs: Number.parseInt(currentForm?.elements?.requestDelayMs?.value || '600', 10),
-        detailConcurrency: Number.parseInt(currentForm?.elements?.detailConcurrency?.value || '3', 10),
+        requestDelayMs: FIXED_REQUEST_DELAY_MS,
+        detailConcurrency: FIXED_DETAIL_CONCURRENCY,
         deliveryEmail: currentForm?.elements?.deliveryEmail?.value?.trim?.() ?? '',
         cronExpression: currentForm?.elements?.cronExpression?.value?.trim?.() ?? '',
     };
@@ -1061,11 +1288,19 @@ function validatePayload(payload, { requireDeliveryEmail = false, requireCronExp
     }
 
     if (
+        (payload.resumeMatchMinScore != null || payload.resumeMatchMaxScore != null)
+        && !payload.resumeUrl
+        && !payload.resumeFile
+    ) {
+        return 'Add a resume URL or upload a resume to filter by resume match score.';
+    }
+
+    if (
         payload.resumeMatchMinScore != null
         && payload.resumeMatchMaxScore != null
         && payload.resumeMatchMinScore > payload.resumeMatchMaxScore
     ) {
-        return 'Min score cannot be greater than max score.';
+        return 'Minimum resume match score cannot be greater than the maximum.';
     }
 
     if (requireDeliveryEmail && !payload.deliveryEmail) {
@@ -1154,11 +1389,9 @@ function renderResults(items) {
     }
 
     resultsList.innerHTML = '';
-
-    const paginationFooter = document.querySelector('.pagination-footer');
+    updatePaginationControls();
 
     if (items.length === 0) {
-        if (paginationFooter) paginationFooter.style.display = 'none';
         const emptyState = document.createElement('div');
         emptyState.className = 'empty-state';
         emptyState.textContent = lastResponse
@@ -1167,8 +1400,6 @@ function renderResults(items) {
         resultsList.append(emptyState);
         return;
     }
-
-    if (paginationFooter) paginationFooter.style.display = 'flex';
 
     const appliedJobs = getAppliedJobIds();
 
@@ -1271,11 +1502,38 @@ function updateSummary(visibleCount = 0) {
     }
 
     const { payload, response } = lastResponse;
-    const pageText = `Page ${payload.pageNumber} · ${payload.rows} rows`;
+    const pageText = `Page ${payload.pageNumber}`;
     const scoredText = response.resumeMatchScoredCount != null
         ? ` · scored ${response.resumeMatchScoredCount}`
         : '';
     resultsSummary.textContent = `${pageText} · visible ${visibleCount} / returned ${response.count}${scoredText} · scanned ${response.pagesScanned} search pages`;
+}
+
+function updatePaginationControls() {
+    if (!paginationFooter) {
+        return;
+    }
+
+    if (!lastResponse) {
+        paginationFooter.style.display = 'none';
+        if (previousPageButton) {
+            previousPageButton.disabled = true;
+        }
+        if (nextPageButton) {
+            nextPageButton.disabled = true;
+        }
+        return;
+    }
+
+    paginationFooter.style.display = 'flex';
+
+    if (previousPageButton) {
+        previousPageButton.disabled = uiLoading || lastResponse.payload.pageNumber <= DEFAULT_SEARCH_PAGE_NUMBER;
+    }
+
+    if (nextPageButton) {
+        nextPageButton.disabled = uiLoading || (lastResponse.response.count ?? 0) < FIXED_ROWS_PER_PAGE;
+    }
 }
 
 function setLoadingState(isLoading) {
@@ -1316,9 +1574,20 @@ function setLoadingState(isLoading) {
         saveAlertButton.textContent = isLoading ? 'Working…' : 'Save Email Alert';
     }
 
+    if (refreshSessionButton) {
+        refreshSessionButton.disabled = isLoading || !getActiveApiKey();
+    }
+
     if (refreshAlertsButton) {
         refreshAlertsButton.disabled = isLoading;
     }
+
+    if (saveProfileButton) {
+        saveProfileButton.disabled = isLoading;
+        saveProfileButton.textContent = isLoading ? 'Saving…' : 'Save profile';
+    }
+
+    updatePaginationControls();
 }
 
 function showStatus(message, tone) {
@@ -1604,7 +1873,7 @@ function renderAlerts(alerts, options = {}) {
             alert.searchInputSummary?.hasResumeFile ? 'Resume file stored' : null,
             alert.searchInputSummary?.publishedAt ? `Posted ${alert.searchInputSummary.publishedAt}` : null,
             alert.searchInputSummary?.resumeMatchMinScore != null || alert.searchInputSummary?.resumeMatchMaxScore != null
-                ? `Score ${alert.searchInputSummary.resumeMatchMinScore ?? 1}-${alert.searchInputSummary.resumeMatchMaxScore ?? 10}`
+                ? `Resume fit ${alert.searchInputSummary.resumeMatchMinScore ?? 1}-${alert.searchInputSummary.resumeMatchMaxScore ?? 10}/10`
                 : null,
         ].filter(Boolean).forEach((value) => {
             config.append(createChip(value, 'default'));
@@ -1701,16 +1970,12 @@ function loadAlertIntoForm(alert) {
     setValue('cronExpression', alert.cronExpression ?? '');
     setValue('title', summary.title ?? '');
     setValue('location', summary.location ?? '');
-    setValue('rows', summary.rows ?? 10);
-    setValue('pageNumber', summary.pageNumber ?? 1);
     setValue('publishedAt', summary.publishedAt ?? '');
     setValue('companyName', Array.isArray(summary.companyName) ? summary.companyName.join(', ') : '');
     setValue('companyId', Array.isArray(summary.companyId) ? summary.companyId.join(', ') : '');
     setValue('resumeUrl', summary.resumeUrl ?? '');
     setValue('resumeMatchMinScore', summary.resumeMatchMinScore ?? '');
     setValue('resumeMatchMaxScore', summary.resumeMatchMaxScore ?? '');
-    setValue('requestDelayMs', summary.requestDelayMs ?? 600);
-    setValue('detailConcurrency', summary.detailConcurrency ?? 3);
     if (getField('resumeFile')) {
         getField('resumeFile').value = '';
     }
@@ -1718,6 +1983,7 @@ function loadAlertIntoForm(alert) {
     applyMultiSelectValues('contractType', summary.contractType ?? []);
     applyMultiSelectValues('experienceLevel', summary.experienceLevel ?? []);
     updateResumeFileState();
+    syncScoreRangeControlsFromFields();
     persistPreferences();
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -1754,16 +2020,13 @@ function persistPreferences() {
         alertName: readValue('alertName'),
         title: readValue('title'),
         location: readValue('location'),
-        rows: readValue('rows'),
-        pageNumber: readValue('pageNumber'),
         publishedAt: readValue('publishedAt'),
         companyName: readValue('companyName'),
         companyId: readValue('companyId'),
         resumeUrl: readValue('resumeUrl'),
         resumeMatchMinScore: readValue('resumeMatchMinScore'),
         resumeMatchMaxScore: readValue('resumeMatchMaxScore'),
-        requestDelayMs: readValue('requestDelayMs'),
-        detailConcurrency: readValue('detailConcurrency'),
+        phoneNumber: readValue('phoneNumber'),
         deliveryEmail: readValue('deliveryEmail'),
         cronExpression: readValue('cronExpression'),
         workType: readSelected('workType'),
@@ -1808,16 +2071,13 @@ function hydratePreferences() {
             'signupName',
             'signupEmail',
             'location',
-            'rows',
-            'pageNumber',
             'publishedAt',
             'companyName',
             'companyId',
             'resumeUrl',
             'resumeMatchMinScore',
             'resumeMatchMaxScore',
-            'requestDelayMs',
-            'detailConcurrency',
+            'phoneNumber',
             'deliveryEmail',
             'cronExpression',
         ]) {
@@ -1842,6 +2102,7 @@ function hydratePreferences() {
             }
         }
 
+        syncScoreRangeControlsFromFields();
         syncOtpFormState();
     } catch {
         if (apiKeyInput) {

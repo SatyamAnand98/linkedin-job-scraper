@@ -60,8 +60,6 @@ function buildCriteriaRows(input = {}, result = {}) {
         ['Work type', formatList(input.workType)],
         ['Contract type', formatList(input.contractType)],
         ['Experience level', formatList(input.experienceLevel)],
-        ['Rows / page', input.rows ?? 'Default'],
-        ['Page number', input.pageNumber ?? 1],
         ['Resume', describeResumeSource(input)],
         ['Resume score range', scoreRange],
     ];

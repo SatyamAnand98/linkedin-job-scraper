@@ -138,7 +138,7 @@ The verification response returns a distinct API key for that email user. Use th
 
 Pagination:
 
-- `rows` is the page size.
+- `rows` is the page size and defaults to `10` when omitted.
 - `pageNumber` is 1-based.
 - Example: `rows=10` and `pageNumber=2` skips the first 10 matching jobs and returns the next 10.
 

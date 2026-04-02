@@ -65,8 +65,8 @@
 
                             <label class="field">
                                 <span>Name</span>
-                                <input name="signupName" type="text" readonly
-                                    placeholder="Loaded from your verified session">
+                                <input name="signupName" type="text" autocomplete="name"
+                                    placeholder="How you want your profile to appear">
                             </label>
 
                             <label class="field">
@@ -75,7 +75,15 @@
                                     placeholder="Loaded from your verified session">
                             </label>
 
+                            <label class="field field--full">
+                                <span>Phone number</span>
+                                <input name="phoneNumber" type="tel" inputmode="tel" autocomplete="tel"
+                                    placeholder="+1 415 555 0199">
+                                <span class="field__hint">Optional. Add it now to unlock upcoming features as they roll out.</span>
+                            </label>
+
                             <div class="actions field--full">
+                                <button type="submit" id="save-profile" class="button button--primary">Save profile</button>
                                 <button type="button" id="refresh-session" class="button button--ghost"
                                     title="Re-sync your session data from the server">↻ Refresh Session</button>
                             </div>
