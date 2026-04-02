@@ -1403,6 +1403,16 @@ h6,
     justify-content: space-between;
 }
 
+.field__split {
+    display: grid;
+    grid-template-columns: minmax(120px, 172px) minmax(0, 1fr);
+    gap: 12px;
+}
+
+.field__split--phone select {
+    min-width: 0;
+}
+
 .field select[multiple] {
     padding: 8px;
     height: 140px;
@@ -1645,6 +1655,9 @@ h6,
 .score-range__control {
     position: relative;
     height: 42px;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .score-range__track,
@@ -1680,6 +1693,8 @@ h6,
     border: none;
     box-shadow: none;
     pointer-events: none;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
     -webkit-appearance: none;
     appearance: none;
 }
@@ -1730,6 +1745,32 @@ h6,
 
 .score-range__control input[data-score-range-max] {
     z-index: 3;
+}
+
+body.score-range-dragging {
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
+@media (pointer: coarse) {
+    .score-range__control {
+        height: 52px;
+    }
+
+    .score-range__control input[type="range"] {
+        height: 52px;
+    }
+
+    .score-range__control input[type="range"]::-webkit-slider-thumb {
+        width: 28px;
+        height: 28px;
+        margin-top: -11px;
+    }
+
+    .score-range__control input[type="range"]::-moz-range-thumb {
+        width: 28px;
+        height: 28px;
+    }
 }
 
 .score-range__legend,
@@ -2045,6 +2086,10 @@ h6,
     .actions {
         flex-direction: column;
         width: 100%;
+    }
+
+    .field__split {
+        grid-template-columns: 1fr;
     }
 
     .auth-layout {

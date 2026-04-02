@@ -75,12 +75,24 @@
                                     placeholder="Loaded from your verified session">
                             </label>
 
-                            <label class="field field--full">
+                            <div class="field field--full">
                                 <span>Phone number</span>
-                                <input name="phoneNumber" type="tel" inputmode="tel" autocomplete="tel"
-                                    placeholder="+1 415 555 0199">
+                                <div class="field__split field__split--phone">
+                                    <select name="phoneCountryCode" aria-label="Phone country code">
+                                        <option value="">Code</option>
+                                        <option value="+91">India (+91)</option>
+                                        <option value="+1">United States (+1)</option>
+                                        <option value="+44">United Kingdom (+44)</option>
+                                        <option value="+61">Australia (+61)</option>
+                                        <option value="+65">Singapore (+65)</option>
+                                        <option value="+49">Germany (+49)</option>
+                                        <option value="+971">UAE (+971)</option>
+                                    </select>
+                                    <input name="phoneNumber" type="tel" inputmode="tel" autocomplete="tel"
+                                        placeholder="415 555 0199" aria-label="Phone number">
+                                </div>
                                 <span class="field__hint">Optional. Add it now to unlock upcoming features as they roll out.</span>
-                            </label>
+                            </div>
 
                             <div class="actions field--full">
                                 <button type="submit" id="save-profile" class="button button--primary">Save profile</button>

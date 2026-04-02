@@ -8,6 +8,7 @@ const FIXED_REQUEST_DELAY_MS = 600;
 const FIXED_DETAIL_CONCURRENCY = 3;
 const SCORE_RANGE_MIN = 1;
 const SCORE_RANGE_MAX = 10;
+const PHONE_COUNTRY_CODES = ['+971', '+91', '+65', '+61', '+49', '+44', '+1'];
 
 const isBrowser = typeof document !== 'undefined';
 const page = isBrowser ? document.body.dataset.page ?? '' : '';
@@ -84,6 +85,44 @@ function readTrimmedFieldValue(fieldName) {
     return readFieldValue(fieldName).trim();
 }
 
+function splitPhoneNumber(phoneNumber) {
+    const normalized = `${phoneNumber ?? ''}`.trim();
+    if (!normalized) {
+        return {
+            countryCode: '',
+            localNumber: '',
+        };
+    }
+
+    for (const countryCode of PHONE_COUNTRY_CODES) {
+        if (normalized === countryCode || normalized.startsWith(countryCode)) {
+            return {
+                countryCode,
+                localNumber: normalized.slice(countryCode.length).trim(),
+            };
+        }
+    }
+
+    return {
+        countryCode: '',
+        localNumber: normalized,
+    };
+}
+
+function composePhoneNumber({ countryCode, localNumber }) {
+    const normalizedLocalNumber = `${localNumber ?? ''}`.trim();
+    if (!normalizedLocalNumber) {
+        return '';
+    }
+
+    if (normalizedLocalNumber.startsWith('+')) {
+        return normalizedLocalNumber;
+    }
+
+    const normalizedCountryCode = `${countryCode ?? ''}`.trim();
+    return normalizedCountryCode ? `${normalizedCountryCode} ${normalizedLocalNumber}` : normalizedLocalNumber;
+}
+
 function parsePositiveInteger(value, fallback = DEFAULT_SEARCH_PAGE_NUMBER) {
     const parsed = Number.parseInt(`${value ?? ''}`, 10);
     return Number.isFinite(parsed) && parsed >= DEFAULT_SEARCH_PAGE_NUMBER
@@ -123,6 +162,138 @@ function formatScoreValue(value) {
 
 function isFullScoreRange(minValue, maxValue) {
     return minValue === SCORE_RANGE_MIN && maxValue === SCORE_RANGE_MAX;
+}
+
+function setScoreRangeTouchLock(locked) {
+    if (!isBrowser) {
+        return;
+    }
+
+    document.body.classList.toggle('score-range-dragging', locked);
+}
+
+function bindScoreRangeTouchHandlers(input) {
+    if (!input || input.dataset.touchGuard === 'true') {
+        return;
+    }
+
+    const startTouchDrag = () => {
+        setScoreRangeTouchLock(true);
+    };
+    const stopTouchDrag = () => {
+        setScoreRangeTouchLock(false);
+    };
+    const preventTouchScroll = (event) => {
+        if (event.cancelable) {
+            event.preventDefault();
+        }
+    };
+
+    input.addEventListener('touchstart', startTouchDrag, { passive: true });
+    input.addEventListener('touchmove', preventTouchScroll, { passive: false });
+    input.addEventListener('touchend', stopTouchDrag, { passive: true });
+    input.addEventListener('touchcancel', stopTouchDrag, { passive: true });
+    input.addEventListener('change', stopTouchDrag);
+    input.addEventListener('blur', stopTouchDrag);
+    input.dataset.touchGuard = 'true';
+}
+
+function bindScoreRangeTrackTouchHandlers(control, controlElement, minInput, maxInput) {
+    if (!control || !controlElement || !minInput || !maxInput || controlElement.dataset.touchTrackGuard === 'true') {
+        return;
+    }
+
+    let activeHandle = null;
+    let hasDragged = false;
+
+    const getValueFromClientX = (clientX) => {
+        const rect = controlElement.getBoundingClientRect();
+        if (!rect.width) {
+            return SCORE_RANGE_MIN;
+        }
+
+        const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+        const value = SCORE_RANGE_MIN + ratio * (SCORE_RANGE_MAX - SCORE_RANGE_MIN);
+        return normalizeScoreValue(value, SCORE_RANGE_MIN);
+    };
+
+    const pickHandle = (value) => {
+        const minValue = normalizeScoreValue(minInput.value, SCORE_RANGE_MIN);
+        const maxValue = normalizeScoreValue(maxInput.value, SCORE_RANGE_MAX);
+
+        if (value <= minValue) {
+            return 'min';
+        }
+
+        if (value >= maxValue) {
+            return 'max';
+        }
+
+        return Math.abs(value - minValue) <= Math.abs(value - maxValue) ? 'min' : 'max';
+    };
+
+    const applyDraggedValue = (value) => {
+        if (!activeHandle) {
+            return;
+        }
+
+        if (activeHandle === 'min') {
+            minInput.value = `${Math.min(value, normalizeScoreValue(maxInput.value, SCORE_RANGE_MAX))}`;
+        } else {
+            maxInput.value = `${Math.max(value, normalizeScoreValue(minInput.value, SCORE_RANGE_MIN))}`;
+        }
+
+        updateScoreRangeControl(control, activeHandle);
+    };
+
+    const handleTouchStart = (event) => {
+        const touch = event.touches?.[0];
+        if (!touch) {
+            return;
+        }
+
+        if (event.cancelable) {
+            event.preventDefault();
+        }
+
+        activeHandle = pickHandle(getValueFromClientX(touch.clientX));
+        hasDragged = true;
+        setScoreRangeTouchLock(true);
+        applyDraggedValue(getValueFromClientX(touch.clientX));
+    };
+
+    const handleTouchMove = (event) => {
+        if (!activeHandle) {
+            return;
+        }
+
+        const touch = event.touches?.[0];
+        if (!touch) {
+            return;
+        }
+
+        if (event.cancelable) {
+            event.preventDefault();
+        }
+
+        applyDraggedValue(getValueFromClientX(touch.clientX));
+    };
+
+    const handleTouchEnd = () => {
+        if (hasDragged) {
+            persistPreferences();
+        }
+
+        activeHandle = null;
+        hasDragged = false;
+        setScoreRangeTouchLock(false);
+    };
+
+    controlElement.addEventListener('touchstart', handleTouchStart, { passive: false });
+    controlElement.addEventListener('touchmove', handleTouchMove, { passive: false });
+    controlElement.addEventListener('touchend', handleTouchEnd, { passive: true });
+    controlElement.addEventListener('touchcancel', handleTouchEnd, { passive: true });
+    controlElement.dataset.touchTrackGuard = 'true';
 }
 
 function updateScoreRangeControl(control, trigger = '') {
@@ -166,9 +337,7 @@ function updateScoreRangeControl(control, trigger = '') {
     fill.style.right = `${100 - toPercent(maxValue)}%`;
 
     if (summary) {
-        summary.textContent = useFullRange
-            ? 'Any fit score'
-            : `${formatScoreValue(minValue)} to ${formatScoreValue(maxValue)} / 10`;
+        summary.textContent = `${formatScoreValue(minValue)} to ${formatScoreValue(maxValue)} / 10`;
     }
 
     if (minLabel) {
@@ -213,6 +382,11 @@ function initializeScoreRangeControls() {
         const minInput = control.querySelector('[data-score-range-min]');
         const maxInput = control.querySelector('[data-score-range-max]');
         const resetButton = control.querySelector('[data-score-range-reset]');
+        const controlElement = control.querySelector('.score-range__control');
+
+        bindScoreRangeTouchHandlers(minInput);
+        bindScoreRangeTouchHandlers(maxInput);
+        bindScoreRangeTrackTouchHandlers(control, controlElement, minInput, maxInput);
 
         minInput?.addEventListener('input', () => {
             updateScoreRangeControl(control, 'min');
@@ -227,6 +401,7 @@ function initializeScoreRangeControls() {
                 return;
             }
 
+            setScoreRangeTouchLock(false);
             minInput.value = `${SCORE_RANGE_MIN}`;
             maxInput.value = `${SCORE_RANGE_MAX}`;
             updateScoreRangeControl(control);
@@ -385,6 +560,7 @@ function bootstrap() {
         renderSessionChrome();
     });
     getField('signupName')?.addEventListener('input', persistPreferences);
+    getField('phoneCountryCode')?.addEventListener('change', persistPreferences);
     getField('phoneNumber')?.addEventListener('input', persistPreferences);
     apiKeyInput?.addEventListener('blur', async () => {
         persistPreferences();
@@ -728,9 +904,15 @@ function fillSessionFields(profile) {
         nameField.value = profile.name ?? '';
     }
 
+    const phoneParts = splitPhoneNumber(profile.phoneNumber);
+    const phoneCountryCodeField = getField('phoneCountryCode');
+    if (phoneCountryCodeField) {
+        phoneCountryCodeField.value = phoneParts.countryCode;
+    }
+
     const phoneField = getField('phoneNumber');
     if (phoneField) {
-        phoneField.value = profile.phoneNumber ?? '';
+        phoneField.value = phoneParts.localNumber;
     }
 
     const deliveryEmailField = getField('deliveryEmail');
@@ -814,7 +996,10 @@ async function handleAccountSubmit(event) {
     event.preventDefault();
 
     const name = readTrimmedFieldValue('signupName');
-    const phoneNumber = readTrimmedFieldValue('phoneNumber');
+    const phoneNumber = composePhoneNumber({
+        countryCode: readTrimmedFieldValue('phoneCountryCode'),
+        localNumber: readTrimmedFieldValue('phoneNumber'),
+    });
     if (!name) {
         showStatus('Name is required.', 'error');
         return;
@@ -2026,6 +2211,7 @@ function persistPreferences() {
         resumeUrl: readValue('resumeUrl'),
         resumeMatchMinScore: readValue('resumeMatchMinScore'),
         resumeMatchMaxScore: readValue('resumeMatchMaxScore'),
+        phoneCountryCode: readValue('phoneCountryCode'),
         phoneNumber: readValue('phoneNumber'),
         deliveryEmail: readValue('deliveryEmail'),
         cronExpression: readValue('cronExpression'),
@@ -2065,6 +2251,21 @@ function hydratePreferences() {
             resultsSortInput.value = preferences.resultsSort ?? 'api';
         }
 
+        const phoneParts = preferences.phoneCountryCode != null
+            ? {
+                countryCode: preferences.phoneCountryCode,
+                localNumber: preferences.phoneNumber ?? '',
+            }
+            : splitPhoneNumber(preferences.phoneNumber);
+        const phoneCountryCodeField = getField('phoneCountryCode');
+        if (phoneCountryCodeField) {
+            phoneCountryCodeField.value = phoneParts.countryCode;
+        }
+        const phoneField = getField('phoneNumber');
+        if (phoneField) {
+            phoneField.value = phoneParts.localNumber;
+        }
+
         for (const fieldName of [
             'alertName',
             'title',
@@ -2077,7 +2278,6 @@ function hydratePreferences() {
             'resumeUrl',
             'resumeMatchMinScore',
             'resumeMatchMaxScore',
-            'phoneNumber',
             'deliveryEmail',
             'cronExpression',
         ]) {
