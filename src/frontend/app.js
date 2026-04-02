@@ -65,6 +65,7 @@ let uiLoading = false;
 let appliedJobsPersistenceMode = 'local';
 let appliedJobsCache = new Set();
 let pendingSearchPageNumber = null;
+let searchLoadingState = null;
 
 if (isBrowser) {
     bootstrap();
@@ -1037,8 +1038,14 @@ async function handleSearchSubmit(event) {
         return;
     }
 
+    searchLoadingState = {
+        pageNumber: payload.pageNumber,
+        isPageNavigation,
+    };
     setLoadingState(true);
-    showStatus(`Searching page ${payload.pageNumber}...`);
+    renderSearchLoadingState();
+    updateSummary();
+    showStatus(isPageNavigation ? `Loading page ${payload.pageNumber}...` : `Searching page ${payload.pageNumber}...`);
 
     try {
         const response = await searchJobs(payload);
@@ -1046,14 +1053,23 @@ async function handleSearchSubmit(event) {
             payload,
             response,
         };
+        searchLoadingState = null;
 
         persistPreferences();
         rerenderFromLastResponse();
         showStatus('Results loaded.', 'success');
     } catch (error) {
+        searchLoadingState = null;
+        if (lastResponse) {
+            rerenderFromLastResponse();
+        } else {
+            renderResults([]);
+            updateSummary();
+        }
         showStatus(error.message, 'error');
     } finally {
         pendingSearchPageNumber = null;
+        searchLoadingState = null;
         setLoadingState(false);
     }
 }
@@ -1302,7 +1318,7 @@ function resetField(fieldName) {
 }
 
 function changePageNumber(delta) {
-    if (!searchForm) {
+    if (!searchForm || uiLoading || pendingSearchPageNumber != null) {
         return;
     }
 
@@ -1573,6 +1589,7 @@ function renderResults(items) {
         return;
     }
 
+    resultsList.setAttribute('aria-busy', 'false');
     resultsList.innerHTML = '';
     updatePaginationControls();
 
@@ -1659,6 +1676,45 @@ function renderResults(items) {
     }
 }
 
+function renderSearchLoadingState() {
+    if (!resultsList) {
+        return;
+    }
+
+    resultsList.setAttribute('aria-busy', 'true');
+    resultsList.innerHTML = '';
+    updatePaginationControls();
+
+    const loadingState = document.createElement('div');
+    loadingState.className = 'results-loading';
+    loadingState.setAttribute('role', 'status');
+    loadingState.setAttribute('aria-live', 'polite');
+
+    const pageNumber = searchLoadingState?.pageNumber ?? getSearchPageNumber();
+
+    const title = document.createElement('strong');
+    title.className = 'results-loading__title';
+    title.textContent = searchLoadingState?.isPageNavigation
+        ? `Loading page ${pageNumber}...`
+        : 'Searching for jobs...';
+
+    const description = document.createElement('p');
+    description.className = 'results-loading__text';
+    description.textContent = 'Fetching results and scoring resume matches. Please wait.';
+
+    const skeletons = document.createElement('div');
+    skeletons.className = 'results-loading__skeletons';
+
+    for (let index = 0; index < 3; index += 1) {
+        const skeleton = document.createElement('div');
+        skeleton.className = 'results-loading__skeleton';
+        skeletons.append(skeleton);
+    }
+
+    loadingState.append(title, description, skeletons);
+    resultsList.append(loadingState);
+}
+
 function createChip(value, tone) {
     if (!value) {
         return null;
@@ -1678,6 +1734,13 @@ function humanizeMetricName(value) {
 
 function updateSummary(visibleCount = 0) {
     if (!resultsSummary) {
+        return;
+    }
+
+    if (searchLoadingState) {
+        resultsSummary.textContent = searchLoadingState.isPageNavigation
+            ? `Loading page ${searchLoadingState.pageNumber}...`
+            : `Searching page ${searchLoadingState.pageNumber}...`;
         return;
     }
 
@@ -1703,9 +1766,11 @@ function updatePaginationControls() {
         paginationFooter.style.display = 'none';
         if (previousPageButton) {
             previousPageButton.disabled = true;
+            previousPageButton.textContent = '← Previous';
         }
         if (nextPageButton) {
             nextPageButton.disabled = true;
+            nextPageButton.textContent = 'Next →';
         }
         return;
     }
@@ -1713,11 +1778,27 @@ function updatePaginationControls() {
     paginationFooter.style.display = 'flex';
 
     if (previousPageButton) {
+        previousPageButton.textContent = '← Previous';
+    }
+
+    if (nextPageButton) {
+        nextPageButton.textContent = 'Next →';
+    }
+
+    if (previousPageButton) {
         previousPageButton.disabled = uiLoading || lastResponse.payload.pageNumber <= DEFAULT_SEARCH_PAGE_NUMBER;
     }
 
     if (nextPageButton) {
         nextPageButton.disabled = uiLoading || (lastResponse.response.count ?? 0) < FIXED_ROWS_PER_PAGE;
+    }
+
+    if (uiLoading && searchLoadingState?.isPageNavigation) {
+        if (searchLoadingState.pageNumber > lastResponse.payload.pageNumber) {
+            nextPageButton && (nextPageButton.textContent = 'Loading…');
+        } else if (searchLoadingState.pageNumber < lastResponse.payload.pageNumber) {
+            previousPageButton && (previousPageButton.textContent = 'Loading…');
+        }
     }
 }
 
@@ -1740,7 +1821,7 @@ function setLoadingState(isLoading) {
 
     if (searchButton) {
         searchButton.disabled = isLoading;
-        searchButton.textContent = isLoading ? 'Working…' : 'Search Jobs';
+        searchButton.textContent = isLoading && !searchLoadingState?.isPageNavigation ? 'Searching…' : 'Search Jobs';
     }
 
     nextPageButton && (nextPageButton.disabled = isLoading);
